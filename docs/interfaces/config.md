@@ -59,10 +59,20 @@ windows_user = "lsw"
 | `filesystem.windows_drive_z` | string | `Z:` | Windows 内映射的盘符 |
 | `user.windows_user` | string | `lsw` | Windows SSH 用户名；`PROMPT.md` 示例中的 `user` 即此字段 |
 
+> 统一引用名：代码与文档中使用 `config.user.windows_user` 指代该字段（对应 TOML 的 `[user] windows_user`）。
+
 ## 输入 / 输出
 
 - 输入：配置文件路径（可被 CLI 参数覆盖，后续阶段定义）。
 - 输出：校验后的 `Config` 结构；字段缺失时补默认值，非法值返回错误。
+- `~` / `~/` 路径（`vm.disk`、`vm.windows_iso`、`vm.virtio_iso`、`filesystem.linux_home_share`）按 `$HOME` 展开。
+
+## 实现说明（P1-4）
+
+- API：`parse_config(text)`、`load_config(file, allow_missing)`、`validate_config(config)`、`default_config_toml()`。
+- 校验范围：`memory_mb` 256~1048576、`cpus` 1~256、端口 1~65535、`mount_root` 非空绝对路径、用户名/共享名非空。
+- 错误码：`ConfigNotFound`、`ConfigParseError`、`ConfigInvalid`；CLI 层统一映射为退出码 2。
+- 配置文件缺失且 `allow_missing=true` 时返回默认配置，不报错。
 
 ## 错误码
 

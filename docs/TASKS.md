@@ -11,8 +11,8 @@
 
 | 阶段 | 名称 | 权重 | 状态 |
 | --- | --- | ---: | :---: |
-| P0 | 工程基线 | 5% | [x] |
-| P1 | `lsw_core` 核心库 | 15% | [ ] |
+| P0 | 工程基线 | 5% | ✅ 已完成 |
+| P1 | `lsw_core` 核心库 | 15% | ✅ 已完成 |
 | P2 | IPC 与 `lswd` 骨架 | 10% | [ ] |
 | P3 | QEMU / QMP | 15% | [ ] |
 | P4 | `lsw --install` | 10% | [ ] |
@@ -21,7 +21,7 @@
 | P7 | `lsw shell` 桥接 | 8% | [ ] |
 | P8 | `lsw test.exe` 执行 | 5% | [ ] |
 | P9 | 系统测试与 1.0 收口 | 10% | [ ] |
-| **合计** | | **100%** | 当前 **5%** |
+| **合计** | | **100%** | 当前 **20%** |
 
 ## 权重分布
 
@@ -53,8 +53,8 @@ P0 → P1 → P2 → P3 ─┬─→ P4（安装链路）───────�
 
 | 里程碑 | 内容 | 完成标志 | 累计权重 |
 | --- | --- | --- | ---: |
-| M0 | 工程基线 | CMake C++26 可构建，CTest 通过，文档基线齐全 | 5% |
-| M1 | 核心库可用 | `lsw_core` 单测全绿，配置/路径/进程接口冻结 | 20% |
+| ✅ M0 | 工程基线 | CMake C++26 可构建，CTest 通过，文档基线齐全 | 5% |
+| ✅ M1 | 核心库可用 | `lsw_core` 单测全绿，配置/路径/进程接口冻结 | 20% |
 | M2 | VM 可控 | `lswd` 能通过 QMP 启停 Mock/真实 QEMU | 45% |
 | M3 | 安装可用 | `lsw --install` 真机走通安装模式 | 55% |
 | M4 | 日常可用 | `start` / `shell` / `test.exe` / `shutdown` 闭环 | 90% |
@@ -67,21 +67,37 @@ P0 → P1 → P2 → P3 ─┬─→ P4（安装链路）───────�
 | 编号 | 任务 | 交付物 / 验收标准 | 依赖 | 权重 | 状态 |
 | --- | --- | --- | --- | ---: | :---: |
 | P0-1 | CMake C++26 基线 | `CMakeLists.txt`：最低 3.25、`CMAKE_CXX_STANDARD 26`、构建通过 | — | 1% | [x] |
-| P0-2 | 源文件自动识别 | glob `src/**/*.cpp` + `CONFIGURE_DEPENDS`，新增文件免登记 | P0-1 | 1% | [x] |
+| P0-2 | 源文件自动识别 | 按模块 glob `src/{cli,core,util}/**/*.cpp` + `CONFIGURE_DEPENDS`，新增文件免登记 | P0-1 | 1% | [x] |
 | P0-3 | 测试与目录骨架 | `tests/` + CTest `lsw_smoke`；`include/`、`scripts/`、`cmake/` 就位 | P0-1 | 1% | [x] |
-| P0-4 | 文档与规范基线 | `architecture.md`、5 份接口文档、6 张图；统一路径与 SSH 用户 | P0-1 | 2% | [x] |
+| P0-4 | 文档与规范基线 | `architecture.md`、≥5 份接口文档、≥6 张图；统一路径与 SSH 用户 | P0-1 | 2% | [x] |
 
-## P1 · `lsw_core` 核心库（15%）
+### P0 验收方式（一键）
+
+```bash
+bash scripts/verify-p0.sh
+```
+
+预期：全部检查通过并返回退出码 `0`；脚本内部会执行一次临时目录的干净构建与 `ctest`（1/1 通过），并验证新增 `.cpp` 免登记。手工核对入口：`docs/architecture.md`、`docs/interfaces/*.md`、`docs/diagrams/*.puml`。
+
+## P1 · `lsw_core` 核心库（15%，已完成，待验收）
 
 | 编号 | 任务 | 交付物 / 验收标准 | 依赖 | 权重 | 状态 |
 | --- | --- | --- | --- | ---: | :---: |
-| P1-1 | 依赖接入 | `cmake/Dependencies.cmake`：CLI11、nlohmann/json、spdlog、fmt、toml++、Catch2；支持 FetchContent 与系统包，离线可构建 | P0 | 2% | [ ] |
-| P1-2 | `Result<T>` 与错误码 | `core/error.hpp`；统一错误分类与 CLI 退出码映射；单测覆盖成功/失败路径 | P1-1 | 3% | [ ] |
-| P1-3 | 日志与 XDG 路径 | `util/paths` + spdlog 初始化；`$CONFIG/$DATA/$STATE/$RUNTIME` 解析与创建；XDG 环境变量覆盖单测 | P1-1 | 2% | [ ] |
-| P1-4 | 配置加载与校验 | `core/config`：TOML 解析、默认值、非法值报错、生成模板；单测对齐 `docs/interfaces/config.md` | P1-3 | 3% | [ ] |
-| P1-5 | 路径映射 `linux_to_z` | `core/path_map`：`$HOME`/`$HOME` 下/`$HOME` 外三态；空格、中文、深层路径单测 | P1-3 | 2% | [ ] |
-| P1-6 | 进程 RAII 封装 | `core/process`：参数化 spawn、stdout/stderr/退出码捕获、超时与回收；无 shell 注入；单测 | P1-2 | 2% | [ ] |
-| P1-7 | `lsw_core` 目标 | 静态库目标 + 单测接入 CTest；`lsw` 改为链接 `lsw_core` | P1-1~6 | 1% | [ ] |
+| P1-1 | 依赖接入 | `cmake/Dependencies.cmake`：CLI11、nlohmann/json、spdlog、fmt、toml++、Catch2；支持 FetchContent 与系统包，离线可构建 | P0 | 2% | [x] |
+| P1-2 | `Result<T>` 与错误码 | `core/error.hpp`；统一错误分类与 CLI 退出码映射；单测覆盖成功/失败路径 | P1-1 | 3% | [x] |
+| P1-3 | 日志与 XDG 路径 | `util/paths` + spdlog 初始化；`$CONFIG/$DATA/$STATE/$RUNTIME` 解析与创建；XDG 环境变量覆盖单测 | P1-1 | 2% | [x] |
+| P1-4 | 配置加载与校验 | `core/config`：TOML 解析、默认值、非法值报错、生成模板；单测对齐 `docs/interfaces/config.md` | P1-3 | 3% | [x] |
+| P1-5 | 路径映射 `linux_to_z` | `core/path_map`：`$HOME`/`$HOME` 下/`$HOME` 外三态；空格、中文、深层路径单测 | P1-3 | 2% | [x] |
+| P1-6 | 进程 RAII 封装 | `core/process`：参数化 spawn、stdout/stderr/退出码捕获、超时与回收；无 shell 注入；单测 | P1-2 | 2% | [x] |
+| P1-7 | `lsw_core` 目标 | 静态库目标 + 单测接入 CTest；`lsw` 改为链接 `lsw_core` | P1-1~6 | 1% | [x] |
+
+### P1 验收方式（一键）
+
+```bash
+bash scripts/verify-p1.sh
+```
+
+预期：`-std=c++26` 编译参数生效、`lsw_core` 构建成功、`ctest` 全部通过（33/33 = 1 冒烟 + 32 单元）。手工核对：`docs/interfaces/core.md`、`docs/interfaces/config.md`、`tests/unit/*.cpp`。
 
 ## P2 · IPC 与 `lswd` 骨架（10%）
 

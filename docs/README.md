@@ -1,6 +1,6 @@
 # docs/README.md
 
-本目录保存 LSW 的架构、接口和调用关系图。
+本目录保存 LSW 的架构、接口、调用关系图与任务清单。
 
 ## 目录
 
@@ -11,6 +11,7 @@ docs/
 ├── TASKS.md
 ├── interfaces/
 │   ├── cli.md
+│   ├── core.md
 │   ├── daemon-ipc.md
 │   ├── qmp.md
 │   ├── filesystem.md
