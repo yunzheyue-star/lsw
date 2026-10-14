@@ -1,0 +1,21 @@
+@startuml
+actor User
+component "lsw CLI" as CLI
+component "lswd" as Daemon
+component "QEMU/KVM" as QEMU
+component "QMP" as QMP
+component "Windows OpenSSH" as WinSSH
+component "PowerShell" as PS
+component "SMB/CIFS" as SMB
+component "Linux $HOME" as Home
+
+User --> CLI
+CLI --> Daemon : Unix Socket JSON
+Daemon --> QEMU : spawn
+Daemon --> QMP : control
+QMP --> QEMU
+Daemon --> WinSSH : ssh -t / ssh exec
+WinSSH --> PS
+Daemon --> SMB : mount.cifs
+SMB --> Home : Z: 映射
+@enduml

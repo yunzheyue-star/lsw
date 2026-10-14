@@ -1,0 +1,55 @@
+# ===== CMake 构建目录 =====
+build/
+cmake-build-*/
+out/
+install/
+
+# 就地构建（in-source）时由 CMake 生成的文件
+/CMakeCache.txt
+/CMakeFiles/
+/cmake_install.cmake
+/CTestTestfile.cmake
+/Testing/
+/Makefile
+/compile_commands.json
+/.ninja_deps
+/.ninja_log
+CMakeUserPresets.json
+
+# ===== 编译产物 =====
+*.o
+*.obj
+*.lo
+*.a
+*.lib
+*.so
+*.so.*
+*.dylib
+*.dll
+*.exe
+*.d
+*.gcda
+*.gcno
+/lsw
+/lswd
+
+# ===== 本地运行 / 调试产物 =====
+# QEMU 虚拟机状态（默认在 ~/.local/share/lsw，这里忽略仓库内本地调试时的副本）
+/state/
+/run/
+*.qcow2
+*.qcow2.*
+*.pid
+*.sock
+*.log
+*.tmp
+
+# ===== 编辑器 / IDE =====
+.vscode/
+.idea/
+.clangd/
+.cache/
+*.swp
+*.swo
+*~
+.DS_Store
