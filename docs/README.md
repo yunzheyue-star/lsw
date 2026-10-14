@@ -8,6 +8,7 @@
 docs/
 ├── architecture.md
 ├── CHANGELOG.md
+├── TASKS.md
 ├── interfaces/
 │   ├── cli.md
 │   ├── daemon-ipc.md
@@ -34,11 +35,13 @@ docs/
 - 配置文件字段
 - 模块依赖、调用方向
 - 安装/启动/关闭流程
+- 任务拆分、权重与阶段状态（`docs/TASKS.md`）
 
 ## 每次任务完成检查
 
 - [ ] `docs/interfaces/*.md` 已更新
 - [ ] `docs/diagrams/*.puml` 已更新
 - [ ] `docs/CHANGELOG.md` 已更新
+- [ ] `docs/TASKS.md` 状态已更新
 - [ ] 构建通过
 - [ ] 测试通过

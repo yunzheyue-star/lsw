@@ -9,6 +9,7 @@
 - 工程基线：CMake 目标 `lsw`、CTest 冒烟测试 `lsw_smoke`。
 - 目录骨架：`include/lsw/{cli,core,vm,fs,shell,exec,ipc,util}`、`tests/`、`scripts/`、`cmake/`。
 - 文档骨架：`docs/architecture.md`、`docs/interfaces/{qmp,filesystem,config}.md`、`docs/diagrams/sequence-{install,start,exec,shutdown}.puml`。
+- 任务清单：`docs/TASKS.md`（P0~P9 共 47 项任务，权重合计 100%，含关键路径、里程碑与执行规约）。
 
 ### 变更
 
