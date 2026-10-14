@@ -1,20 +1,24 @@
 @startuml
+title LSW 组件调用关系
 actor User
 component "lsw CLI" as CLI
+component "lsw_core" as Core
 component "lswd" as Daemon
 component "QEMU/KVM" as QEMU
-component "QMP" as QMP
+component "QMP Client" as QMP
 component "Windows OpenSSH" as WinSSH
 component "PowerShell" as PS
 component "SMB/CIFS" as SMB
 component "Linux $HOME" as Home
 
 User --> CLI
-CLI --> Daemon : Unix Socket JSON
+CLI --> Core
+CLI --> Daemon : Unix Socket JSON\n$RUNTIME/lsw/lswd.sock
+Daemon --> Core
 Daemon --> QEMU : spawn
-Daemon --> QMP : control
+Daemon --> QMP : control\n$RUNTIME/lsw/qmp.sock
 QMP --> QEMU
-Daemon --> WinSSH : ssh -t / ssh exec
+Daemon --> WinSSH : ssh -t / exec\n$WINDOWS_USER@127.0.0.1:2222
 WinSSH --> PS
 Daemon --> SMB : mount.cifs
 SMB --> Home : Z: 映射

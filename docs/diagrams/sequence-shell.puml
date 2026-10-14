@@ -1,4 +1,5 @@
 @startuml
+title lsw shell 时序
 actor User
 participant "lsw" as CLI
 participant "lswd" as Daemon
@@ -6,12 +7,16 @@ participant "ssh" as SSH
 participant "Windows OpenSSH" as WinSSH
 participant "PowerShell" as PS
 
-User -> CLI : lsw
-CLI -> Daemon : shell { cwd }
-Daemon -> Daemon : linux_to_z(cwd, home)
-Daemon --> CLI : ssh 参数
-CLI -> SSH : exec ssh -t ...
+User -> CLI : lsw（或 lsw shell）
+CLI -> Daemon : shell { cwd }（$RUNTIME/lsw/lswd.sock）
+alt cwd 在 $HOME 下
+  Daemon -> Daemon : linux_to_z(cwd, home)
+  Daemon --> CLI : { ssh_args: [Set-Location Z:\\...] }
+else cwd 不在 $HOME 下
+  Daemon --> CLI : error PATH_OUTSIDE_HOME（退出码 5）
+end
+CLI -> SSH : execvp ssh -t -p 2222 "$WINDOWS_USER"@127.0.0.1 ...
 SSH -> WinSSH : 连接 127.0.0.1:2222
 WinSSH -> PS : powershell.exe -NoLogo -NoExit
-PS --> User : 交互式终端
+PS --> User : 交互式终端（不新开窗口）
 @enduml

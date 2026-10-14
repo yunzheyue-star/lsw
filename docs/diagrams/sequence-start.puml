@@ -1,0 +1,24 @@
+@startuml
+title lsw start 时序
+actor User
+participant "lsw" as CLI
+participant "lswd" as Daemon
+participant "QEMU / QMP" as QEMU
+participant "Windows OpenSSH" as WinSSH
+participant "CIFS" as CIFS
+
+User -> CLI : lsw start
+CLI -> Daemon : start {}
+alt 已在运行
+  Daemon --> CLI : ok（幂等，直接返回状态）
+else 未运行
+  Daemon -> Daemon : 加锁 $RUNTIME/lsw/lswd.pid，创建 lswd.sock
+  Daemon -> QEMU : QMP 启动 VM（-display none，后台）
+  Daemon -> WinSSH : 轮询 127.0.0.1:2222
+  WinSSH --> Daemon : SSH 可用
+  Daemon -> CIFS : 挂载 //127.0.0.1/C$、/D$ 到 /mnt/Windows/{C,D}
+  Daemon -> WinSSH : 确保 net use Z: \\10.0.2.4\qemu
+  Daemon --> CLI : { pid, vm_status, mounts }
+end
+CLI --> User : 启动完成
+@enduml

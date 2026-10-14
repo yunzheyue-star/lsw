@@ -4,6 +4,21 @@
 
 ---
 
+## 路径基准（所有技能统一使用）
+
+```bash
+CONFIG="${XDG_CONFIG_HOME:-$HOME/.config}/lsw/config.toml"   # 配置
+DATA="${XDG_DATA_HOME:-$HOME/.local/share}/lsw"              # 持久数据
+STATE="${XDG_STATE_HOME:-$HOME/.local/state}/lsw"            # 状态与日志
+RUNTIME="${XDG_RUNTIME_DIR}/lsw"                             # 套接字与 PID
+```
+
+- `$DATA/vm/disk.qcow2`：Windows 系统盘；`$DATA/vm/OVMF_VARS.fd`：UEFI 变量。
+- `$RUNTIME/qmp.sock`、`$RUNTIME/qga.sock`、`$RUNTIME/lswd.sock`、`$RUNTIME/lswd.pid`：运行时资源，重启即失效，禁止放进 `$DATA`/`$STATE`。
+- Windows SSH 用户名统一取 `config.user.windows_user`（默认 `lsw`）；`PROMPT.md` 示例中的 `user` 即该字段。
+
+---
+
 ## SKILL-01：添加或修改 CLI 命令
 
 ### 目的
@@ -56,14 +71,14 @@ qemu-system-x86_64 \
   -name lsw-windows \
   -enable-kvm -machine q35,accel=kvm -cpu host -smp 4 -m 8192 \
   -drive if=pflash,format=raw,readonly=on,file=/usr/share/OVMF/OVMF_CODE.fd \
-  -drive if=pflash,format=raw,file=$STATE/OVMF_VARS.fd \
-  -drive file=$STATE/disk.qcow2,if=virtio,format=qcow2 \
+  -drive if=pflash,format=raw,file=$DATA/vm/OVMF_VARS.fd \
+  -drive file=$DATA/vm/disk.qcow2,if=virtio,format=qcow2 \
   -drive file=$WIN_ISO,media=cdrom,readonly=on \
   -drive file=$VIRTIO_ISO,media=cdrom,readonly=on \
   -netdev user,id=net0,hostfwd=tcp:127.0.0.1:2222-:22,hostfwd=tcp:127.0.0.1:1445-:445,smb=$HOME \
   -device virtio-net-pci,netdev=net0 \
-  -qmp unix:$STATE/qmp.sock,server=on,wait=off \
-  -chardev socket,path=$STATE/qga.sock,server=on,wait=off,id=qga0 \
+  -qmp unix:$RUNTIME/qmp.sock,server=on,wait=off \
+  -chardev socket,path=$RUNTIME/qga.sock,server=on,wait=off,id=qga0 \
   -device virtio-serial \
   -device virtserialport,chardev=qga0,name=org.qemu.guest_agent.0 \
   -display gtk
@@ -85,6 +100,8 @@ qemu-system-x86_64 \
 ### 目的
 
 通过 QMP Socket 控制 QEMU。
+
+Socket：`$RUNTIME/qmp.sock`（`$RUNTIME=${XDG_RUNTIME_DIR}/lsw`）。
 
 ### 接口
 
@@ -139,8 +156,10 @@ std::optional<std::string> linux_to_z(const fs::path& cwd, const fs::path& home)
 必须使用 `execvp` 替换当前进程：
 
 ```cpp
+// $WINDOWS_USER 来自 config.user.windows_user，默认 lsw；端口来自 config.network.ssh_host_port
+std::string ssh_target = cfg.user.windows_user + "@127.0.0.1";
 std::vector<std::string> args = {
-  "ssh", "-t", "-p", "2222", "user@127.0.0.1", "--",
+  "ssh", "-t", "-p", std::to_string(cfg.network.ssh_host_port), ssh_target, "--",
   "powershell.exe", "-NoLogo", "-NoExit"
 };
 if (auto z = linux_to_z(cwd, home)) {
@@ -178,7 +197,8 @@ execvp("ssh", to_argv(args).data());
 4. SSH 执行：
 
 ```bash
-ssh -p 2222 user@127.0.0.1 \
+# $WINDOWS_USER 来自 config.user.windows_user，默认 lsw
+ssh -p 2222 "$WINDOWS_USER"@127.0.0.1 \
   "powershell.exe -NoProfile -Command \"& 'Z:\\path\\test.exe' arg1 arg2; exit \$LASTEXITCODE\""
 ```
 

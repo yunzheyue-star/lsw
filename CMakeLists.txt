@@ -1,8 +1,10 @@
-# CONFIGURE_DEPENDS 需要 CMake 3.12+
-cmake_minimum_required(VERSION 3.12)
+# C++26 需要 CMake >= 3.25（对齐 agent.md 基线）
+# CONFIGURE_DEPENDS 需要 CMake >= 3.12
+cmake_minimum_required(VERSION 3.25)
 project(lsw VERSION 0.1.0 LANGUAGES C CXX)
 
-set(CMAKE_CXX_STANDARD 17)
+# 统一标准：C++26（对齐 PROMPT.md）
+set(CMAKE_CXX_STANDARD 26)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
@@ -27,8 +29,16 @@ if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/include")
         "${CMAKE_CURRENT_SOURCE_DIR}/include/*.h"
         "${CMAKE_CURRENT_SOURCE_DIR}/include/*.hpp"
     )
-    target_sources(lsw PRIVATE ${LSW_HEADERS})
+    if(LSW_HEADERS)
+        target_sources(lsw PRIVATE ${LSW_HEADERS})
+    endif()
 endif()
 
 target_include_directories(lsw PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src")
+
+# ===== 测试 =====
+include(CTest)          # 定义 BUILD_TESTING，默认 ON
+if(BUILD_TESTING)
+    add_subdirectory(tests)
+endif()
 

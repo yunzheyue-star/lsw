@@ -14,7 +14,7 @@ LSW 是一个 Linux 上的 Windows 子系统工具，目标是在 Linux 终端�
 
 ## 技术栈
 
-- C++20
+- C++26
 - CMake >= 3.25
 - QEMU/KVM
 - QMP
@@ -130,7 +130,8 @@ lsw/
   - 否则报错或复制。
 - 构造 SSH 命令：
   ```bash
-  ssh -t -p 2222 user@127.0.0.1 -- powershell.exe -NoLogo -NoExit ...
+  # $WINDOWS_USER 来自 config.user.windows_user，默认 lsw
+  ssh -t -p 2222 "$WINDOWS_USER"@127.0.0.1 -- powershell.exe -NoLogo -NoExit ...
   ```
 - 使用 `execvp` 替换当前进程。
 
@@ -147,12 +148,10 @@ lsw/
 
 ## 配置与状态
 
-- 配置：`~/.config/lsw/config.toml`
-- 状态：`~/.local/state/lsw/`
-- 数据：`~/.local/share/lsw/`
-- 运行时：`$XDG_RUNTIME_DIR/lsw/`
-- QMP：`$XDG_RUNTIME_DIR/lsw/qmp.sock`
-- IPC：`$XDG_RUNTIME_DIR/lsw/lswd.sock`
+- 配置：`~/.config/lsw/config.toml`（遵循 `$XDG_CONFIG_HOME`）
+- 状态：`~/.local/state/lsw/`（日志、安装标记等，遵循 `$XDG_STATE_HOME`）
+- 数据：`~/.local/share/lsw/vm/`（`disk.qcow2`、`OVMF_VARS.fd`，遵循 `$XDG_DATA_HOME`）
+- 运行时：`$XDG_RUNTIME_DIR/lsw/`（`lswd.sock`、`qmp.sock`、`qga.sock`、`lswd.pid`）
 
 配置示例：
 
@@ -190,7 +189,7 @@ ctest --test-dir build --output-on-failure
 
 ## 编码规范
 
-- C++20。
+- C++26。
 - 使用 RAII 管理进程、socket、文件描述符。
 - 禁止裸 `new/delete`。
 - 错误处理使用 `std::expected` 或自定义 `Result<T>`。

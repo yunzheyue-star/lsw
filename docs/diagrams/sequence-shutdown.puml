@@ -1,0 +1,22 @@
+@startuml
+title lsw shutdown 时序
+actor User
+participant "lsw" as CLI
+participant "lswd" as Daemon
+participant "Windows OpenSSH" as WinSSH
+participant "QMP" as QMP
+participant "QEMU" as QEMU
+
+User -> CLI : lsw shutdown
+CLI -> Daemon : shutdown {}
+Daemon -> WinSSH : ssh shutdown /s /t 0
+alt SSH 关机失败
+  Daemon -> QMP : system_powerdown
+  QMP -> QEMU : 电源事件
+end
+Daemon -> QEMU : 等待进程退出
+Daemon -> Daemon : umount /mnt/Windows/C、/mnt/Windows/D
+Daemon -> Daemon : 停止 lswd，清理 $RUNTIME/lsw/{lswd.sock,qmp.sock,qga.sock,lswd.pid}
+Daemon --> CLI : { stopped: true }
+CLI --> User : 已关闭
+@enduml
