@@ -15,6 +15,9 @@
 - 第三方依赖接入：`cmake/Dependencies.cmake`（CLI11、nlohmann/json、spdlog、fmt、toml++、Catch2；系统包优先 + FetchContent 兜底，`LSW_FETCH_DEPS=OFF` 可强制离线）。
 - 单元测试 32 例：`tests/unit/*.cpp`，`ctest` 共 33 项全部通过。
 - 接口文档：`docs/interfaces/core.md`，记录 `lsw_core` 公开接口。
+- IPC：JSON Lines 协议（`ipc/protocol`）、Unix Socket `Client`/`Server`（多连接、0700 权限、优雅关闭）。
+- `lswd` 骨架：`lswd.pid` + `flock` 单实例锁、SIGINT/SIGTERM 优雅退出、`status` 命令、socket/PID 清理；`DaemonState` 幂等状态机。
+- 集成探针 `tests/integration/ipc_probe.cpp` 与 P2 验收脚本 `scripts/verify-p2.sh`。
 
 ### 变更
 
@@ -24,6 +27,8 @@
 - 统一 SSH 用户：取 `config.user.windows_user`（默认 `lsw`）；`agent.md`、`SKILL.md` 示例参数化，`PROMPT.md` 中的 `user` 明确为该字段。
 - `CMakeLists.txt` 自动 glob 改为按模块目录：`src/core`、`src/util` 进 `lsw_core`，`src/cli` 进 `lsw`（`CONFIGURE_DEPENDS`）。
 - CMake 目标拆分：`lsw_core`（静态库）+ `lsw`（CLI 可执行文件，链接 `lsw_core`）；`main.cpp` 迁移到 `src/cli/main.cpp`。
+- 新增 `lswd` 可执行目标（`src/daemon/`）；`lsw_core` 纳入 `src/ipc/`。
+- CLI11 由 v2.4.2 升级到 v2.7.2。
 
 ### 修复
 
@@ -32,3 +37,4 @@
 - 统一 `docs/interfaces/config.md` 的字段引用名 `config.user.windows_user`，与 CLI、SKILL 保持一致。
 - 修正 `docs/architecture.md` 的阶段编号（1~8 → P1~P9），与 `docs/TASKS.md` 对齐。
 - 修复 `run_process` 自锁：父进程读取 exec 状态管道前未关闭自身写端，导致成功执行时死锁（由 P1 超时用例暴露）。
+- 修复 CLI11 低版本 `cmake_minimum_required(VERSION 3.5)` 触发的 CMake 弃用警告：升级到 v2.7.2（要求 CMake >= 3.14）。

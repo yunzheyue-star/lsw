@@ -29,3 +29,7 @@ catch_discover_tests(lsw_core_tests
     LABELS "unit"
     TEST_PREFIX "core."
 )
+
+# ===== 集成探针：供 scripts/verify-p2.sh 调用真实 lswd =====
+add_executable(lsw_ipc_probe "${CMAKE_CURRENT_SOURCE_DIR}/integration/ipc_probe.cpp")
+target_link_libraries(lsw_ipc_probe PRIVATE lsw_core)

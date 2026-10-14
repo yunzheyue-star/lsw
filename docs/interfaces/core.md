@@ -81,18 +81,44 @@ Result<ProcessResult> run_process(const std::vector<std::string>& argv,
 - 捕获 stdout / stderr / 退出码；被信号终止时 `exit_code = 128 + signal`。
 - 超时返回 `kProcessTimeout` 并强制回收子进程；无法执行返回 `kProcessError`。
 
+### IPC 与守护进程状态（`lsw/ipc/*`、`lsw/core/state.hpp`）
+
+```cpp
+// 协议（protocol.hpp）：JSON Lines
+struct Request  { std::string id, cmd; nlohmann::json args; };
+struct Response { std::string id; bool ok; nlohmann::json data; std::string error_code, error_message; };
+
+// 客户端（client.hpp）
+Result<nlohmann::json> Client::call(std::string_view cmd, const nlohmann::json& args = {});
+
+// 服务端（server.hpp）
+void Server::register_handler(std::string cmd, Handler handler);
+Status Server::start();
+std::jthread Server::run();          // 后台服务线程
+Result<bool> Server::serve_once();   // 等待并处理一个连接
+void Server::request_stop() noexcept;
+
+// 状态机（state.hpp）
+Result<nlohmann::json> DaemonState::handle(const std::string& cmd, const nlohmann::json& args);
+```
+
+- 协议与错误码约定见 `docs/interfaces/daemon-ipc.md`。
+- `DaemonState` 的 `start`/`shutdown`/`mount`/`unmount` 幂等，互斥锁保证并发安全。
+- `Server` 每条连接一个线程，socket 权限 `0700`，停止时回收连接并删除 socket。
+- `lswd` 使用 `lswd.pid` + `flock` 保证单实例，SIGINT/SIGTERM 优雅退出。
+
 ## 错误码 → CLI 退出码
 
 | 错误码 | 退出码 |
 | --- | --- |
 | `kOk` | 0 |
-| `kInvalidArgument`、`kConfig*` | 2 |
+| `kInvalidArgument`、`kConfig*`、`kUnknownCommand` | 2 |
 | `kMissingDependency` | 3 |
 | `kPathMappingFailed` | 5 |
 | `kSshFailed` | 6 |
 | `kProgramFailed` | 7 |
 | `kQemuError` | 8 |
-| `kInternal`、`kIoError`、`kProcess*` | 1 |
+| `kInternal`、`kIoError`、`kProcess*`、`kNotImplemented`、`kDaemonUnavailable`、`kProtocolError` | 1 |
 
 ## 依赖
 
@@ -116,3 +142,4 @@ Result<ProcessResult> run_process(const std::vector<std::string>& argv,
 | 版本 | 变更 |
 | --- | --- |
 | 未发布 | P1 建立：错误码、XDG 路径、日志、配置、路径映射、进程执行与 32 例单元测试 |
+| 未发布 | P2 新增：IPC JSON Lines 协议、Client/Server、守护进程状态机 `DaemonState`；CLI11 升级 v2.7.2 |

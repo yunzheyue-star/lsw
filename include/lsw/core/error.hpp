@@ -23,6 +23,10 @@ enum class ErrorCode {
   kIoError = 12,
   kProcessError = 13,
   kProcessTimeout = 14,
+  kUnknownCommand = 15,
+  kNotImplemented = 16,
+  kDaemonUnavailable = 17,
+  kProtocolError = 18,
 };
 
 struct Error {

@@ -59,8 +59,10 @@
 | CMake 目标 `lsw`、C++26、CMake >= 3.25 | ✅ 已建立 |
 | 第三方依赖：系统包优先 + FetchContent 兜底（`cmake/Dependencies.cmake`） | ✅ P1 已建立 |
 | `lsw_core`：Result/错误码、XDG 路径、日志、配置、路径映射、进程封装 | ✅ P1 已建立 |
+| IPC：JSON Lines 协议、Unix Socket Client/Server、幂等状态机 | ✅ P2 已建立 |
+| `lswd`：单实例锁、信号处理、status 命令、socket 清理 | ✅ P2 骨架已建立 |
 | `lsw` 编译 `src/cli/` 并链接 `lsw_core`；模块目录自动 glob | ✅ P1 已建立 |
 | 单元测试：CTest + Catch2（`tests/unit/`） | ✅ P1 已建立 |
-| CLI / IPC / vm / fs / shell / exec 模块 | ⏳ 规划中（P2~P9，见 `docs/TASKS.md` 与 `CHANGELOG.md`） |
+| CLI 命令解析、vm / fs / shell / exec 功能模块 | ⏳ 规划中（P3~P9，见 `docs/TASKS.md` 与 `CHANGELOG.md`） |
 
 > 核心库公开接口见 `docs/interfaces/core.md`，配置字段见 `docs/interfaces/config.md`。

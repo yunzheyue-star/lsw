@@ -13,7 +13,7 @@
 | --- | --- | ---: | :---: |
 | P0 | 工程基线 | 5% | ✅ 已完成 |
 | P1 | `lsw_core` 核心库 | 15% | ✅ 已完成 |
-| P2 | IPC 与 `lswd` 骨架 | 10% | [ ] |
+| P2 | IPC 与 `lswd` 骨架 | 10% | ✅ 已完成 |
 | P3 | QEMU / QMP | 15% | [ ] |
 | P4 | `lsw --install` | 10% | [ ] |
 | P5 | `lsw start` / `lsw shutdown` | 10% | [ ] |
@@ -21,7 +21,7 @@
 | P7 | `lsw shell` 桥接 | 8% | [ ] |
 | P8 | `lsw test.exe` 执行 | 5% | [ ] |
 | P9 | 系统测试与 1.0 收口 | 10% | [ ] |
-| **合计** | | **100%** | 当前 **20%** |
+| **合计** | | **100%** | 当前 **30%** |
 
 ## 权重分布
 
@@ -108,6 +108,14 @@ bash scripts/verify-p1.sh
 | P2-3 | IPC Client | 连接/超时/重试、请求 `id`、错误转 `Result`；socketpair 单测 | P2-1 | 2% | [ ] |
 | P2-4 | `lswd` 进程骨架 | daemon main、`lswd.pid` 单实例锁、信号处理、socket 清理、`status` 命令 | P2-2 | 2% | [ ] |
 | P2-5 | 幂等与并发骨架 | `start`/`mount`/`unmount` 幂等；并发重复调用串行化测试 | P2-4 | 1% | [ ] |
+
+### P2 验收方式（一键）
+
+```bash
+bash scripts/verify-p2.sh
+```
+
+预期：`lswd` 构建成功，`ctest` 全部通过（47/47 = 1 冒烟 + 46 单元），真实 lswd 进程可查询 `status`、`mount`，未知命令与 `shell` 返回正确错误码，第二实例被单实例锁拒绝，退出后 socket/PID 清理。手工核对：`docs/interfaces/daemon-ipc.md`、`tests/unit/test_ipc.cpp`、`tests/integration/ipc_probe.cpp`。
 
 ## P3 · QEMU / QMP（15%）
 

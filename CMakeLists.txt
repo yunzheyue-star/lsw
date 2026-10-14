@@ -22,6 +22,7 @@ include(Dependencies)
 file(GLOB_RECURSE LSW_CORE_SOURCES CONFIGURE_DEPENDS
     "${CMAKE_CURRENT_SOURCE_DIR}/src/core/*.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/util/*.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/ipc/*.cpp"
 )
 if(NOT LSW_CORE_SOURCES)
     message(FATAL_ERROR "src/core 与 src/util 下没有找到任何 C++ 源文件")
@@ -53,6 +54,19 @@ endif()
 
 add_executable(lsw ${LSW_CLI_SOURCES})
 target_link_libraries(lsw PRIVATE lsw_core)
+target_compile_definitions(lsw PRIVATE LSW_VERSION="${PROJECT_VERSION}")
+
+# ===== lswd 守护进程（src/daemon）=====
+file(GLOB_RECURSE LSW_DAEMON_SOURCES CONFIGURE_DEPENDS
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/daemon/*.cpp"
+)
+if(NOT LSW_DAEMON_SOURCES)
+    message(FATAL_ERROR "src/daemon 下没有找到任何 C++ 源文件")
+endif()
+
+add_executable(lswd ${LSW_DAEMON_SOURCES})
+target_link_libraries(lswd PRIVATE lsw_core)
+target_compile_definitions(lswd PRIVATE LSW_VERSION="${PROJECT_VERSION}")
 
 # ===== 测试 =====
 include(CTest)          # 定义 BUILD_TESTING，默认 ON

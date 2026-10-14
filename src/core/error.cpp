@@ -22,6 +22,10 @@ std::string_view to_string(ErrorCode code) noexcept {
     case ErrorCode::kIoError:         return "IoError";
     case ErrorCode::kProcessError:    return "ProcessError";
     case ErrorCode::kProcessTimeout:  return "ProcessTimeout";
+    case ErrorCode::kUnknownCommand:  return "UnknownCommand";
+    case ErrorCode::kNotImplemented:  return "NotImplemented";
+    case ErrorCode::kDaemonUnavailable: return "DaemonUnavailable";
+    case ErrorCode::kProtocolError:   return "ProtocolError";
   }
   return "Unknown";
 }
@@ -42,6 +46,10 @@ int to_exit_code(ErrorCode code) noexcept {
     case ErrorCode::kIoError:          return 1;
     case ErrorCode::kProcessError:     return 1;
     case ErrorCode::kProcessTimeout:   return 1;
+    case ErrorCode::kUnknownCommand:   return 2;
+    case ErrorCode::kNotImplemented:   return 1;
+    case ErrorCode::kDaemonUnavailable: return 1;
+    case ErrorCode::kProtocolError:    return 1;
   }
   return 1;
 }

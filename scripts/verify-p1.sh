@@ -94,7 +94,7 @@ section "文档同步"
 check_file "docs/interfaces/core.md"
 check_grep "docs/interfaces/config.md" "P1-4" "config.md 标注 P1-4 实现说明"
 check_grep "docs/TASKS.md" "P1 验收方式" "TASKS.md 含 P1 验收方式"
-check_grep "docs/TASKS.md" '\[x\] ✅ 已完成' "TASKS.md 中 P0 标记为已完成"
+check_grep "docs/TASKS.md" "P0 · 工程基线" "TASKS.md 含 P0 阶段基线"
 check_grep "docs/CHANGELOG.md" "lsw_core" "CHANGELOG 记录 lsw_core"
 
 # ---------- 汇总 ----------

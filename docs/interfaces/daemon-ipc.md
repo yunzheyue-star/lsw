@@ -7,6 +7,8 @@
 | 格式 | JSON Lines（每个请求/响应占一行） |
 | 模型 | 请求-响应，`id` 一一对应 |
 
+> 实现状态：P2 已落地协议编解码、Client/Server 与 lswd 骨架；`start`/`shutdown`/`mount`/`unmount` 当前为内存态幂等骨架，`shell`/`exec` 返回 `NOT_IMPLEMENTED`，将在 P3~P8 接入真实 QEMU/SSH。
+
 ## 报文结构
 
 请求：
@@ -45,6 +47,7 @@
 | --- | --- |
 | `BAD_REQUEST` | JSON 非法或缺少 `id`/`cmd` |
 | `UNKNOWN_COMMAND` | 未识别的 `cmd` |
+| `NOT_IMPLEMENTED` | 命令已定义、功能待后续阶段实现（P2 的 `shell`/`exec`） |
 | `VM_NOT_RUNNING` | VM 未启动，无法执行 `shell`/`exec` |
 | `PATH_OUTSIDE_HOME` | `cwd` 不在 `$HOME` 下且无法映射 |
 | `SSH_FAILED` | SSH 连接或执行失败 |
@@ -63,3 +66,4 @@
 | 版本 | 变更 |
 | --- | --- |
 | 未发布 | 补全报文结构、命令参数/返回、错误码与幂等约定 |
+| 未发布 | P2 实现：JSON Lines 编解码、Client/Server、lswd 骨架与幂等状态机；新增 `NOT_IMPLEMENTED` |
