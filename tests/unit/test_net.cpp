@@ -4,6 +4,8 @@
  * @details 文件位置：tests/unit/test_net.cpp（单元测试）。
  *          属于 LSW 测试与集成探针；公共行为以 docs/interfaces 与 agent.md
  * 为准。
+ * @author 琳筱筱 <341178706@qq.com>
+ * @date 2026-10-15
  */
 
 #include <catch2/catch_test_macros.hpp>
@@ -24,7 +26,8 @@ using lsw::wait_for_tcp_port;
 
 namespace {
 
-/// 绑定 127.0.0.1 的临时端口，返回监听 fd 与端口号。
+/// @brief 绑定 127.0.0.1 的临时端口，返回监听 fd 与端口号。
+/// @return 包含监听 fd 与端口号的 pair。
 std::pair<int, std::uint16_t> listen_loopback() {
     const int fd = ::socket(AF_INET, SOCK_STREAM | SOCK_CLOEXEC, 0);
     REQUIRE(fd >= 0);

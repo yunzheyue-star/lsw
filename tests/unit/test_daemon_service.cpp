@@ -4,6 +4,8 @@
  * @details 文件位置：tests/unit/test_daemon_service.cpp（单元测试）。
  *          属于 LSW 测试与集成探针；公共行为以 docs/interfaces 与 agent.md
  * 为准。
+ * @author 琳筱筱 <341178706@qq.com>
+ * @date 2026-10-15
  */
 
 #include <catch2/catch_test_macros.hpp>
@@ -37,6 +39,7 @@ struct Fixture {
     XdgPaths paths;
     Config config;
 
+    /// @brief 构造测试夹具并初始化临时目录、路径与配置。
     Fixture() {
         PathEnvironment env;
         env.home = temp.path() / "home";
@@ -54,6 +57,8 @@ struct Fixture {
         std::ofstream(config.vm.disk).close();
     }
 
+    /// @brief 构造守护进程服务测试所需的选项。
+    /// @return 配置好的守护进程服务选项。
     DaemonServiceOptions options() const {
         DaemonServiceOptions options;
         options.qemu_options.qemu_binary = LSW_FAKE_QEMU_PATH;

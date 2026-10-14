@@ -4,6 +4,8 @@
  * @details 文件位置：src/cli/main.cpp（源文件）。
  *          属于 LSW lsw CLI；公共行为以 docs/interfaces/cli.md 与 agent.md
  * 为准。
+ * @author 琳筱筱 <341178706@qq.com>
+ * @date 2026-10-14
  */
 
 #include <chrono>
@@ -29,11 +31,16 @@
 
 namespace {
 
+/// @brief 输出错误信息并转换为进程退出码。
+/// @param error 待报告的错误对象。
+/// @return 对应的进程退出码。
 int report_error(const lsw::Error &error) {
     std::cerr << "lsw: " << error.message << "\n";
     return lsw::to_exit_code(error.code);
 }
 
+/// @brief 查找当前 CLI 同目录或 PATH 中的 lswd 可执行文件。
+/// @return lswd 可执行文件路径；找不到时返回空路径。
 std::filesystem::path daemon_binary_path() {
     std::error_code error;
     const auto self = std::filesystem::read_symlink("/proc/self/exe", error);
@@ -47,6 +54,9 @@ std::filesystem::path daemon_binary_path() {
     return lsw::vm::find_executable("lswd");
 }
 
+/// @brief 确保 lswd 守护进程已运行，必要时启动并等待其就绪。
+/// @param paths 当前用户 XDG 路径集合。
+/// @return 成功返回空状态，否则返回具体错误。
 lsw::Status ensure_daemon(const lsw::XdgPaths &paths) {
     const auto socket = paths.runtime_dir / "lswd.sock";
     lsw::ipc::ClientOptions probe_options;
@@ -87,6 +97,10 @@ lsw::Status ensure_daemon(const lsw::XdgPaths &paths) {
                      "lswd 启动超时，请查看 " + log_file.string());
 }
 
+/// @brief 通过 IPC 向 lswd 发送命令并输出响应。
+/// @param paths 当前用户 XDG 路径集合。
+/// @param command 要发送给 lswd 的命令名称。
+/// @return 进程退出码，0 表示命令执行成功。
 int run_daemon_command(const lsw::XdgPaths &paths, const std::string &command) {
     lsw::ipc::ClientOptions options;
     options.socket_path = paths.runtime_dir / "lswd.sock";
@@ -110,6 +124,10 @@ int run_daemon_command(const lsw::XdgPaths &paths, const std::string &command) {
 
 } // namespace
 
+/// @brief lsw CLI 入口，解析并执行 install/start/shutdown 命令。
+/// @param argc 命令行参数数量。
+/// @param argv 命令行参数数组。
+/// @return 进程退出码，0 表示执行成功。
 int main(int argc, char **argv) {
     CLI::App app{"lsw - Linux Subsystem for Windows"};
     app.name("lsw");

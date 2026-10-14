@@ -4,6 +4,8 @@
  * @details 文件位置：src/ipc/server.cpp（源文件）。
  *          属于 LSW IPC 与守护进程通信；公共行为以
  * docs/interfaces/daemon-ipc.md 与 agent.md 为准。
+ * @author 琳筱筱 <341178706@qq.com>
+ * @date 2026-10-15
  */
 
 #include <lsw/ipc/server.hpp>
@@ -26,23 +28,53 @@ namespace {
 
 class ScopedFd {
   public:
+    /** @brief 默认构造，文件描述符置为 -1。
+     */
     ScopedFd() = default;
+    /** @brief 接管一个已有的文件描述符。
+     * @param fd 要接管的文件描述符。
+     */
     explicit ScopedFd(int fd) noexcept : fd_(fd) {}
+    /** @brief 析构时关闭持有的文件描述符。
+     */
     ~ScopedFd() { reset(); }
+    /** @brief 禁止拷贝构造，避免重复关闭文件描述符。
+     * @param other 被拷贝的源对象；拷贝已删除。
+     */
     ScopedFd(const ScopedFd &) = delete;
+    /** @brief 禁止拷贝赋值，避免重复关闭文件描述符。
+     * @param other 被拷贝的源对象；拷贝已删除。
+     * @return 该运算符被删除，始终不可用。
+     */
     ScopedFd &operator=(const ScopedFd &) = delete;
+    /** @brief 移动构造，接管源对象释放的文件描述符。
+     * @param other 被移动的源对象。
+     */
     ScopedFd(ScopedFd &&other) noexcept : fd_(other.release()) {}
+    /** @brief 移动赋值，释放当前描述符后接管源对象的描述符。
+     * @param other 被移动的源对象。
+     * @return 自身引用。
+     */
     ScopedFd &operator=(ScopedFd &&other) noexcept {
         if (this != &other)
             reset(other.release());
         return *this;
     }
+    /** @brief 获取当前持有的文件描述符。
+     * @return 文件描述符；未持有时为 -1。
+     */
     [[nodiscard]] int get() const noexcept { return fd_; }
+    /** @brief 释放所有权并返回文件描述符，此后不再负责关闭。
+     * @return 原持有的文件描述符。
+     */
     int release() noexcept {
         const int fd = fd_;
         fd_ = -1;
         return fd;
     }
+    /** @brief 关闭当前文件描述符并接管新的文件描述符。
+     * @param fd 新的文件描述符，默认为 -1 表示不持有。
+     */
     void reset(int fd = -1) noexcept {
         if (fd_ >= 0)
             ::close(fd_);
@@ -53,6 +85,12 @@ class ScopedFd {
     int fd_{-1};
 };
 
+/** @brief 读取一行以换行符结尾的请求文本。
+ * @param fd 目标文件描述符。
+ * @param timeout 读取超时时间。
+ * @param max_bytes 单行请求的最大字节数。
+ * @return 成功返回不含换行符的一行文本；失败返回相应错误。
+ */
 Result<std::string> read_line(int fd, std::chrono::milliseconds timeout,
                               std::size_t max_bytes = 1024 * 1024) {
     std::string buffer;
@@ -100,6 +138,12 @@ Result<std::string> read_line(int fd, std::chrono::milliseconds timeout,
     }
 }
 
+/** @brief 将响应数据完整写入文件描述符，必要时等待可写。
+ * @param fd 目标文件描述符。
+ * @param data 待发送的数据。
+ * @param timeout 等待可写的超时时间。
+ * @return 成功返回空状态；失败返回 IO 错误。
+ */
 Status write_all(int fd, std::string_view data,
                  std::chrono::milliseconds timeout) {
     std::size_t offset = 0;
@@ -138,16 +182,28 @@ Status write_all(int fd, std::string_view data,
 
 } // namespace
 
+/** @brief 构造服务端并保存配置。
+ * @param options 服务端配置。
+ */
 Server::Server(ServerOptions options) : options_(std::move(options)) {}
 
+/** @brief 析构时停止服务端。
+ */
 Server::~Server() { stop(); }
 
+/** @brief 注册命令处理器，仅在服务启动前生效。
+ * @param command 命令名。
+ * @param handler 命令处理函数。
+ */
 void Server::register_handler(std::string command, Handler handler) {
     if (!started_.load()) {
         handlers_[std::move(command)] = std::move(handler);
     }
 }
 
+/** @brief 创建并监听 Unix Socket。
+ * @return 成功返回空状态；失败返回 IO 或参数错误。
+ */
 Status Server::start() {
     if (started_.load()) {
         return {};
@@ -204,6 +260,8 @@ Status Server::start() {
     return {};
 }
 
+/** @brief 停止监听并等待活动连接结束。
+ */
 void Server::stop() noexcept {
     stop_requested_.store(true);
     if (listen_fd_ >= 0) {
@@ -220,6 +278,9 @@ void Server::stop() noexcept {
     std::filesystem::remove(options_.socket_path, error);
 }
 
+/** @brief 等待并处理一个客户端连接。
+ * @return 处理了连接返回 true；超时或已停止返回 false；错误返回 kIoError。
+ */
 Result<bool> Server::serve_once() {
     if (!started_.load() || stop_requested_.load()) {
         return false;
@@ -266,6 +327,9 @@ Result<bool> Server::serve_once() {
     return true;
 }
 
+/** @brief 启动后台服务线程。
+ * @return 后台线程对象，析构时请求停止并等待结束。
+ */
 std::jthread Server::run() {
     return std::jthread([this](std::stop_token token) {
         while (!token.stop_requested() && !stop_requested_.load()) {
@@ -277,6 +341,9 @@ std::jthread Server::run() {
     });
 }
 
+/** @brief 处理单个客户端连接上的请求并写回响应。
+ * @param fd 客户端连接文件描述符。
+ */
 void Server::handle_connection(int fd) {
     auto line = read_line(fd, std::chrono::milliseconds(5000));
     if (!line) {

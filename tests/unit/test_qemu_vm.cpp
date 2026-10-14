@@ -4,6 +4,8 @@
  * @details 文件位置：tests/unit/test_qemu_vm.cpp（单元测试）。
  *          属于 LSW 测试与集成探针；公共行为以 docs/interfaces 与 agent.md
  * 为准。
+ * @author 琳筱筱 <341178706@qq.com>
+ * @date 2026-10-15
  */
 
 #include <catch2/catch_test_macros.hpp>
@@ -35,6 +37,7 @@ struct VmFixture {
     XdgPaths paths;
     Config config;
 
+    /// @brief 构造测试夹具并初始化临时目录、路径与配置。
     VmFixture() {
         PathEnvironment env;
         env.home = temp.path();
@@ -52,6 +55,8 @@ struct VmFixture {
         std::ofstream(config.vm.disk).close();
     }
 
+    /// @brief 构造虚拟机生命周期测试所需的 QEMU 选项。
+    /// @return 配置好的 QEMU 虚拟机选项。
     QemuVmOptions options() const {
         QemuVmOptions options;
         options.qemu_binary = LSW_FAKE_QEMU_PATH;

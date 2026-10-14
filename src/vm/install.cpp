@@ -4,6 +4,8 @@
  * @details 文件位置：src/vm/install.cpp（源文件）。
  *          属于 LSW 虚拟机管理（QEMU/QMP/安装）；公共行为以
  * docs/interfaces/qmp.md 与 agent.md 为准。
+ * @author 琳筱筱 <341178706@qq.com>
+ * @date 2026-10-15
  */
 
 #include <lsw/vm/install.hpp>
@@ -19,12 +21,20 @@
 namespace lsw::vm {
 namespace {
 
+/** @brief 判断路径是否为可读的普通文件。
+ * @param path 待检查的路径。
+ * @return 可读返回 true，否则返回 false。
+ */
 bool readable_file(const std::filesystem::path &path) {
     std::error_code error;
     return std::filesystem::is_regular_file(path, error) &&
            ::access(path.c_str(), R_OK) == 0;
 }
 
+/** @brief 获取文件扩展名并转换为小写。
+ * @param path 文件路径。
+ * @return 小写扩展名（含点号）。
+ */
 std::string lower_extension(const std::filesystem::path &path) {
     std::string extension = path.extension().string();
     std::transform(
@@ -35,6 +45,9 @@ std::string lower_extension(const std::filesystem::path &path) {
 
 enum class DistroFamily { kArch, kDebian, kFedora, kOther };
 
+/** @brief 根据 /etc/os-release 等文件识别发行版家族。
+ * @return 识别出的发行版家族；未知时返回 kOther。
+ */
 DistroFamily detect_distro_family() {
     std::ifstream release("/etc/os-release");
     std::string line;
@@ -71,6 +84,10 @@ DistroFamily detect_distro_family() {
     return DistroFamily::kOther;
 }
 
+/** @brief 生成 QEMU 安装提示。
+ * @param distro 发行版家族。
+ * @return 对应发行版的安装建议。
+ */
 std::string qemu_install_hint(DistroFamily distro) {
     switch (distro) {
     case DistroFamily::kArch:
@@ -86,6 +103,10 @@ std::string qemu_install_hint(DistroFamily distro) {
            "Fedora: qemu-kvm）";
 }
 
+/** @brief 生成 qemu-img 安装提示。
+ * @param distro 发行版家族。
+ * @return 对应发行版的安装建议。
+ */
 std::string qemu_img_install_hint(DistroFamily distro) {
     switch (distro) {
     case DistroFamily::kArch:
@@ -101,6 +122,10 @@ std::string qemu_img_install_hint(DistroFamily distro) {
            "Fedora: qemu-img）";
 }
 
+/** @brief 生成 OVMF 固件安装提示。
+ * @param distro 发行版家族。
+ * @return 对应发行版的安装建议。
+ */
 std::string ovmf_install_hint(DistroFamily distro) {
     switch (distro) {
     case DistroFamily::kArch:
@@ -116,6 +141,10 @@ std::string ovmf_install_hint(DistroFamily distro) {
            "Fedora: edk2-ovmf）";
 }
 
+/** @brief 生成 Samba 安装提示。
+ * @param distro 发行版家族。
+ * @return 对应发行版的安装建议。
+ */
 std::string samba_install_hint(DistroFamily distro) {
     switch (distro) {
     case DistroFamily::kArch:
@@ -130,6 +159,10 @@ std::string samba_install_hint(DistroFamily distro) {
     return "安装 Samba（Windows 内 Z: 共享需要 smbd）";
 }
 
+/** @brief 生成 swtpm 安装提示。
+ * @param distro 发行版家族。
+ * @return 对应发行版的安装建议。
+ */
 std::string swtpm_install_hint(DistroFamily distro) {
     switch (distro) {
     case DistroFamily::kArch:
@@ -146,6 +179,11 @@ std::string swtpm_install_hint(DistroFamily distro) {
     return "Windows 11 需要 TPM，请安装 swtpm（Windows 10 可忽略）";
 }
 
+/** @brief 使用分隔符连接字符串列表。
+ * @param items 待连接的字符串列表。
+ * @param separator 分隔符。
+ * @return 连接后的字符串。
+ */
 std::string join(const std::vector<std::string> &items,
                  const std::string &separator) {
     std::string out;
@@ -158,6 +196,11 @@ std::string join(const std::vector<std::string> &items,
     return out;
 }
 
+/** @brief 校验 ISO 路径存在、可读且扩展名为 .iso。
+ * @param path ISO 文件路径。
+ * @param label 用于错误信息的标签。
+ * @return 校验通过返回空状态；失败返回参数错误。
+ */
 Status validate_iso(const std::filesystem::path &path, const char *label) {
     if (path.empty()) {
         return fail(ErrorCode::kInvalidArgument,
@@ -181,10 +224,18 @@ Status validate_iso(const std::filesystem::path &path, const char *label) {
 
 } // namespace
 
+/** @brief 构造安装流程并保存配置。
+ * @param config 全局配置。
+ * @param paths XDG 数据与运行时路径。
+ * @param options 安装选项。
+ */
 Installer::Installer(Config config, XdgPaths paths, InstallOptions options)
     : config_(std::move(config)), paths_(std::move(paths)),
       options_(std::move(options)) {}
 
+/** @brief 解析最终使用的系统盘路径。
+ * @return 成功返回系统盘路径；失败返回参数错误。
+ */
 Result<std::filesystem::path> Installer::resolve_disk_image() const {
     std::filesystem::path disk = options_.disk_image;
     if (disk.empty()) {
@@ -199,6 +250,9 @@ Result<std::filesystem::path> Installer::resolve_disk_image() const {
     return disk;
 }
 
+/** @brief 检查安装所需的外部依赖。
+ * @return 成功返回依赖检查报告；失败返回错误。
+ */
 Result<DependencyReport> Installer::check_dependencies() const {
     DependencyReport report;
     const DistroFamily distro = detect_distro_family();
@@ -264,6 +318,9 @@ Result<DependencyReport> Installer::check_dependencies() const {
     return report;
 }
 
+/** @brief 校验或在交互模式下获取 Windows 与 virtio ISO 路径。
+ * @return 校验通过返回空状态；失败返回参数错误。
+ */
 Status Installer::validate_isos() {
     if (options_.windows_iso.empty()) {
         if (!options_.interactive) {
@@ -304,6 +361,9 @@ Status Installer::validate_isos() {
     return {};
 }
 
+/** @brief 准备系统盘与 UEFI 变量文件。
+ * @return 成功返回空状态；失败返回相应错误。
+ */
 Status Installer::prepare_storage() {
     auto disk = resolve_disk_image();
     if (!disk) {
@@ -387,6 +447,9 @@ Status Installer::prepare_storage() {
     return {};
 }
 
+/** @brief 执行完整的安装流程。
+ * @return 成功返回安装结果；失败返回相应错误。
+ */
 Result<InstallResult> Installer::run() {
     auto report = check_dependencies();
     if (!report) {
@@ -448,6 +511,9 @@ Result<InstallResult> Installer::run() {
     return InstallResult{*exit_code, post_install_guidance()};
 }
 
+/** @brief 返回安装后的操作指引。
+ * @return 指引文本列表。
+ */
 std::vector<std::string> Installer::post_install_guidance() const {
     return {
         "Windows 安装完成后，请在 Windows 内确认以下事项：",

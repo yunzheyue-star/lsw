@@ -4,16 +4,25 @@
  * @details 文件位置：src/core/error.cpp（源文件）。
  *          属于 LSW 核心库；公共行为以 docs/interfaces/core.md 与 agent.md
  * 为准。
+ * @author 琳筱筱 <341178706@qq.com>
+ * @date 2026-10-14
  */
 
 #include <lsw/core/error.hpp>
 
 namespace lsw {
 
+/// @brief 构造统一错误对象。
+/// @param code 错误码。
+/// @param message 错误描述。
+/// @return 包含错误码与描述的错误对象。
 Error make_error(ErrorCode code, std::string message) {
     return Error{code, std::move(message)};
 }
 
+/// @brief 将错误码转换为稳定字符串。
+/// @param code 待转换的错误码。
+/// @return 与错误码对应的字符串视图。
 std::string_view to_string(ErrorCode code) noexcept {
     switch (code) {
     case ErrorCode::kOk:
@@ -56,6 +65,9 @@ std::string_view to_string(ErrorCode code) noexcept {
     return "Unknown";
 }
 
+/// @brief 将错误码映射为 CLI 退出码。
+/// @param code 待映射的错误码。
+/// @return 与错误码对应的退出码。
 int to_exit_code(ErrorCode code) noexcept {
     switch (code) {
     case ErrorCode::kOk:

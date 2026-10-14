@@ -4,6 +4,8 @@
  * @details 文件位置：src/daemon/lswd.cpp（源文件）。
  *          属于 LSW lswd 守护进程；公共行为以 docs/interfaces/daemon-ipc.md 与
  * agent.md 为准。
+ * @author 琳筱筱 <341178706@qq.com>
+ * @date 2026-10-15
  */
 
 #include <csignal>
@@ -29,10 +31,16 @@ namespace {
 
 volatile std::sig_atomic_t g_stop_requested = 0;
 
+/// @brief 记录收到终止信号，供主循环退出判断。
+/// @param signal 收到的信号编号。
 void on_signal(int) { g_stop_requested = 1; }
 
 } // namespace
 
+/// @brief lswd 守护进程入口。
+/// @param argc 命令行参数数量。
+/// @param argv 命令行参数数组。
+/// @return 进程退出码，0 表示正常退出。
 int main(int argc, char **argv) {
     CLI::App app{"lswd - LSW 守护进程"};
     app.name("lswd");

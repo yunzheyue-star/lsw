@@ -4,6 +4,8 @@
  * @details 文件位置：include/lsw/vm/install.hpp（头文件）。
  *          属于 LSW 虚拟机管理（QEMU/QMP/安装）；公共行为以
  * docs/interfaces/qmp.md 与 agent.md 为准。
+ * @author 琳筱筱 <341178706@qq.com>
+ * @date 2026-10-15
  */
 
 #pragma once
@@ -29,6 +31,8 @@ struct DependencyReport {
     std::vector<std::string> missing;
     std::vector<std::string> hints;
 
+    /// @brief 依赖是否齐全。
+    /// @return 没有缺失依赖返回 true。
     [[nodiscard]] bool ok() const noexcept { return missing.empty(); }
 };
 
@@ -62,14 +66,30 @@ struct InstallOptions {
 /// 依赖检查 → ISO 校验/交互输入 → 磁盘/UEFI 变量准备 → GUI 安装 → 安装后指引。
 class Installer {
   public:
+    /// @brief 构造安装器。
+    /// @param config 全局配置。
+    /// @param paths XDG 路径配置。
+    /// @param options 安装选项。
     Installer(Config config, XdgPaths paths, InstallOptions options);
 
+    /// @brief 检查安装所需外部依赖。
+    /// @return 成功时返回依赖报告。
     [[nodiscard]] Result<DependencyReport> check_dependencies() const;
+    /// @brief 校验 Windows ISO 与 virtio ISO。
+    /// @return 校验状态。
     [[nodiscard]] Status validate_isos();
+    /// @brief 解析安装使用的磁盘镜像路径。
+    /// @return 成功时返回磁盘镜像路径。
     [[nodiscard]] Result<std::filesystem::path> resolve_disk_image() const;
+    /// @brief 准备磁盘镜像与 UEFI 变量等存储资源。
+    /// @return 准备状态。
     [[nodiscard]] Status prepare_storage();
+    /// @brief 执行完整安装流程。
+    /// @return 成功时返回安装结果。
     [[nodiscard]] Result<InstallResult> run();
 
+    /// @brief 生成安装后指引。
+    /// @return 指引文本列表。
     [[nodiscard]] std::vector<std::string> post_install_guidance() const;
 
   private:

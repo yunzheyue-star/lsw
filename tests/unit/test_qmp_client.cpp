@@ -4,6 +4,8 @@
  * @details 文件位置：tests/unit/test_qmp_client.cpp（单元测试）。
  *          属于 LSW 测试与集成探针；公共行为以 docs/interfaces 与 agent.md
  * 为准。
+ * @author 琳筱筱 <341178706@qq.com>
+ * @date 2026-10-15
  */
 
 #include <catch2/catch_test_macros.hpp>
@@ -33,6 +35,7 @@ struct FakeQemu {
     std::filesystem::path socket = dir.path() / "qmp.sock";
     lsw::core::ChildProcess process;
 
+    /// @brief 构造 FakeQemu，启动假 QEMU 进程并等待 QMP socket 就绪。
     FakeQemu() {
         auto spawned = lsw::core::ChildProcess::spawn(
             {LSW_FAKE_QEMU_PATH, "-qmp",
@@ -44,6 +47,7 @@ struct FakeQemu {
         }
     }
 
+    /// @brief 析构 FakeQemu，终止并回收仍在运行的假 QEMU 进程。
     ~FakeQemu() {
         if (process.running()) {
             (void)process.kill();

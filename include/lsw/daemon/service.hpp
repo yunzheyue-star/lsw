@@ -4,6 +4,8 @@
  * @details 文件位置：include/lsw/daemon/service.hpp（头文件）。
  *          属于 LSW lswd 守护进程；公共行为以 docs/interfaces/daemon-ipc.md 与
  * agent.md 为准。
+ * @author 琳筱筱 <341178706@qq.com>
+ * @date 2026-10-15
  */
 
 #pragma once
@@ -33,35 +35,57 @@ struct DaemonServiceOptions {
     bool try_ssh_shutdown{true};
 };
 
-/// @brief
+/// @brief 构造默认守护进程服务选项。
 /// 从环境变量构造默认参数（LSW_QEMU_*、LSW_WAIT_SSH、LSW_SSH_READY_TIMEOUT_MS）。
+/// @return 默认守护进程服务选项。
 [[nodiscard]] DaemonServiceOptions default_daemon_service_options();
 
 /// @brief lswd 的业务服务：管理 QemuVm 生命周期、幂等启停与运行状态。
 class DaemonService {
   public:
+    /// @brief 构造守护进程业务服务。
+    /// @param config 全局配置。
+    /// @param paths XDG 路径配置。
+    /// @param options 服务选项。
     DaemonService(
         Config config, XdgPaths paths,
         DaemonServiceOptions options = default_daemon_service_options());
 
     /// @brief 分发 IPC 命令：start / shutdown / status / mount / unmount /
     /// shell / exec。
+    /// @param command 命令名。
+    /// @param args 命令参数。
+    /// @return 成功时返回命令结果 JSON。
     [[nodiscard]] Result<nlohmann::json>
     handle(const std::string &command,
            const nlohmann::json &args = nlohmann::json::object());
 
+    /// @brief 查询是否收到关闭请求。
+    /// @return 收到关闭请求返回 true。
     [[nodiscard]] bool shutdown_requested() const noexcept {
         return shutdown_requested_.load();
     }
 
   private:
+    /// @brief 处理 start 命令。
+    /// @return 命令结果 JSON。
     [[nodiscard]] Result<nlohmann::json> on_start();
+    /// @brief 处理 shutdown 命令。
+    /// @return 命令结果 JSON。
     [[nodiscard]] Result<nlohmann::json> on_shutdown();
+    /// @brief 处理 status 命令。
+    /// @return 命令结果 JSON。
     [[nodiscard]] Result<nlohmann::json> on_status();
+    /// @brief 处理 mount 命令。
+    /// @return 命令结果 JSON。
     [[nodiscard]] Result<nlohmann::json> on_mount();
+    /// @brief 处理 unmount 命令。
+    /// @return 命令结果 JSON。
     [[nodiscard]] Result<nlohmann::json> on_unmount();
 
+    /// @brief 尝试通过 SSH 关闭虚拟机。
     void try_ssh_shutdown();
+    /// @brief 清理运行时资源。
     void cleanup_runtime() noexcept;
 
     mutable std::mutex mutex_;

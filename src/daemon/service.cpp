@@ -4,6 +4,8 @@
  * @details 文件位置：src/daemon/service.cpp（源文件）。
  *          属于 LSW lswd 守护进程；公共行为以 docs/interfaces/daemon-ipc.md 与
  * agent.md 为准。
+ * @author 琳筱筱 <341178706@qq.com>
+ * @date 2026-10-15
  */
 
 #include <lsw/daemon/service.hpp>
@@ -26,6 +28,10 @@ constexpr std::array<std::string_view, 2> kWindowsMounts = {
     "/mnt/Windows/D",
 };
 
+/** @brief 读取字符串环境变量。
+ * @param name 环境变量名。
+ * @return 变量存在且非空时返回其值；否则返回 nullopt。
+ */
 std::optional<std::string> env_string(const char *name) {
     const char *value = std::getenv(name);
     if (value == nullptr || *value == '\0') {
@@ -34,6 +40,10 @@ std::optional<std::string> env_string(const char *name) {
     return std::string(value);
 }
 
+/** @brief 读取布尔环境变量。
+ * @param name 环境变量名。
+ * @return 变量存在时返回布尔值；否则返回 nullopt。
+ */
 std::optional<bool> env_bool(const char *name) {
     const auto value = env_string(name);
     if (!value.has_value()) {
@@ -42,6 +52,10 @@ std::optional<bool> env_bool(const char *name) {
     return *value == "1" || *value == "true" || *value == "on";
 }
 
+/** @brief 读取长整型环境变量。
+ * @param name 环境变量名。
+ * @return 变量存在时返回数值；否则返回 nullopt。
+ */
 std::optional<long> env_long(const char *name) {
     const auto value = env_string(name);
     if (!value.has_value()) {
@@ -52,6 +66,9 @@ std::optional<long> env_long(const char *name) {
 
 } // namespace
 
+/** @brief 从环境变量构造守护进程服务默认选项。
+ * @return 组装完成的服务选项。
+ */
 DaemonServiceOptions default_daemon_service_options() {
     DaemonServiceOptions options;
     // Win10 默认 SeaBIOS；设置 LSW_QEMU_ENABLE_FIRMWARE=1 可启用 OVMF。
@@ -92,11 +109,21 @@ DaemonServiceOptions default_daemon_service_options() {
     return options;
 }
 
+/** @brief 构造守护进程服务并保存配置。
+ * @param config 全局配置。
+ * @param paths XDG 数据与运行时路径。
+ * @param options 服务运行参数。
+ */
 DaemonService::DaemonService(Config config, XdgPaths paths,
                              DaemonServiceOptions options)
     : config_(std::move(config)), paths_(std::move(paths)),
       options_(std::move(options)) {}
 
+/** @brief 分发并执行 IPC 命令。
+ * @param command 命令名。
+ * @param args 命令参数。
+ * @return 成功返回命令结果；失败返回相应错误。
+ */
 Result<nlohmann::json> DaemonService::handle(const std::string &command,
                                              const nlohmann::json &args) {
     log::logger()->info("lswd 收到命令: {}", command);
@@ -123,6 +150,9 @@ Result<nlohmann::json> DaemonService::handle(const std::string &command,
     return fail(ErrorCode::kUnknownCommand, "未知命令: " + command);
 }
 
+/** @brief 处理 start 命令：幂等启动 QEMU 并按需等待 SSH。
+ * @return 成功返回 pid 与状态信息；失败返回相应错误。
+ */
 Result<nlohmann::json> DaemonService::on_start() {
     std::lock_guard lock(mutex_);
     if (!vm_.has_value()) {
@@ -155,6 +185,9 @@ Result<nlohmann::json> DaemonService::on_start() {
                           {"already_running", already_running}};
 }
 
+/** @brief 处理 shutdown 命令：关闭虚拟机并清理运行时资源。
+ * @return 成功返回停止状态信息。
+ */
 Result<nlohmann::json> DaemonService::on_shutdown() {
     std::lock_guard lock(mutex_);
     const bool already_stopped = !vm_.has_value() || !vm_->running();
@@ -179,6 +212,9 @@ Result<nlohmann::json> DaemonService::on_shutdown() {
                           {"already_stopped", already_stopped}};
 }
 
+/** @brief 处理 status 命令：返回守护进程、虚拟机与挂载状态。
+ * @return 状态信息 JSON。
+ */
 Result<nlohmann::json> DaemonService::on_status() {
     std::lock_guard lock(mutex_);
     std::string vm_status = "stopped";
@@ -197,6 +233,9 @@ Result<nlohmann::json> DaemonService::on_status() {
                           {"pid", pid}};
 }
 
+/** @brief 处理 mount 命令：初始化并返回 Windows 挂载点。
+ * @return 挂载点列表 JSON。
+ */
 Result<nlohmann::json> DaemonService::on_mount() {
     std::lock_guard lock(mutex_);
     if (mounts_.empty()) {
@@ -205,12 +244,17 @@ Result<nlohmann::json> DaemonService::on_mount() {
     return nlohmann::json{{"mounts", mounts_}};
 }
 
+/** @brief 处理 unmount 命令：清空挂载点。
+ * @return 清空后的挂载点列表 JSON。
+ */
 Result<nlohmann::json> DaemonService::on_unmount() {
     std::lock_guard lock(mutex_);
     mounts_.clear();
     return nlohmann::json{{"mounts", mounts_}};
 }
 
+/** @brief 尝试通过 SSH 请求 Windows 关机。
+ */
 void DaemonService::try_ssh_shutdown() {
     const std::string target = config_.user.windows_user + "@127.0.0.1";
     (void)run_process({"ssh", "-p",
@@ -220,6 +264,8 @@ void DaemonService::try_ssh_shutdown() {
                       RunOptions{.timeout = std::chrono::milliseconds(5000)});
 }
 
+/** @brief 清理运行时 socket 文件。
+ */
 void DaemonService::cleanup_runtime() noexcept {
     std::error_code error;
     std::filesystem::remove(paths_.runtime_dir / "qmp.sock", error);

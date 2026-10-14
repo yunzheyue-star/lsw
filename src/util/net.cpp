@@ -4,6 +4,8 @@
  * @details 文件位置：src/util/net.cpp（源文件）。
  *          属于 LSW 工具库；公共行为以 docs/interfaces/core.md 与 agent.md
  * 为准。
+ * @author 琳筱筱 <341178706@qq.com>
+ * @date 2026-10-15
  */
 
 #include <lsw/util/net.hpp>
@@ -21,7 +23,11 @@
 namespace lsw {
 namespace {
 
-/// 非阻塞连接一次，成功返回已连接 fd，失败返回 -1。
+/// @brief 非阻塞连接一次，成功返回已连接 fd，失败返回 -1。
+/// @param host 目标主机名或地址。
+/// @param port 目标端口。
+/// @param attempt_timeout 单次连接尝试的超时时间。
+/// @return 成功返回已连接的文件描述符；失败返回 -1。
 int connect_once(std::string_view host, std::uint16_t port,
                  std::chrono::milliseconds attempt_timeout) {
     addrinfo hints{};
@@ -78,7 +84,9 @@ int connect_once(std::string_view host, std::uint16_t port,
     return connected_fd;
 }
 
-/// 尝试读取 SSH banner；读到 "SSH-" 开头返回 true。
+/// @brief 尝试读取 SSH banner；读到 "SSH-" 开头返回 true。
+/// @param fd 已连接的 socket 文件描述符。
+/// @return 在超时内读到合法 SSH banner 时返回 true，否则返回 false。
 bool read_ssh_banner(int fd) {
     char buffer[256];
     pollfd pfd{fd, POLLIN, 0};
@@ -92,6 +100,12 @@ bool read_ssh_banner(int fd) {
 
 } // namespace
 
+/// @brief 等待 TCP 端口可连接。
+/// @param host 目标主机名或地址。
+/// @param port 目标端口。
+/// @param timeout 总超时时间。
+/// @param interval 重试间隔。
+/// @return 端口就绪返回空 Status；超时返回 kSshFailed。
 Result<void> wait_for_tcp_port(std::string_view host, std::uint16_t port,
                                std::chrono::milliseconds timeout,
                                std::chrono::milliseconds interval) {
@@ -113,6 +127,12 @@ Result<void> wait_for_tcp_port(std::string_view host, std::uint16_t port,
                                            " 超时（端口未就绪）");
 }
 
+/// @brief 等待真正的 SSH 服务，连接后需读到以 "SSH-" 开头的 banner。
+/// @param host 目标主机名或地址。
+/// @param port 目标端口。
+/// @param timeout 总超时时间。
+/// @param interval 重试间隔。
+/// @return 读到合法 SSH banner 返回空 Status；超时或未读到返回 kSshFailed。
 Result<void> wait_for_ssh_banner(std::string_view host, std::uint16_t port,
                                  std::chrono::milliseconds timeout,
                                  std::chrono::milliseconds interval) {

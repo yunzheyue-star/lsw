@@ -4,6 +4,8 @@
  * @details 文件位置：tests/unit/test_process.cpp（单元测试）。
  *          属于 LSW 测试与集成探针；公共行为以 docs/interfaces 与 agent.md
  * 为准。
+ * @author 琳筱筱 <341178706@qq.com>
+ * @date 2026-10-14
  */
 
 #include <catch2/catch_test_macros.hpp>
@@ -22,6 +24,9 @@ using lsw::RunOptions;
 
 namespace {
 
+/** @brief 去除字符串末尾的换行符。
+ * @param text 待处理的字符串。
+ * @return 去除末尾换行与回车字符后的字符串。 */
 std::string trim_newline(std::string text) {
     while (!text.empty() && (text.back() == '\n' || text.back() == '\r')) {
         text.pop_back();

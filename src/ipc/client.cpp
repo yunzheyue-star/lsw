@@ -4,6 +4,8 @@
  * @details 文件位置：src/ipc/client.cpp（源文件）。
  *          属于 LSW IPC 与守护进程通信；公共行为以
  * docs/interfaces/daemon-ipc.md 与 agent.md 为准。
+ * @author 琳筱筱 <341178706@qq.com>
+ * @date 2026-10-15
  */
 
 #include <lsw/ipc/client.hpp>
@@ -24,23 +26,53 @@ namespace {
 
 class ScopedFd {
   public:
+    /** @brief 默认构造，文件描述符置为 -1。
+     */
     ScopedFd() = default;
+    /** @brief 接管一个已有的文件描述符。
+     * @param fd 要接管的文件描述符。
+     */
     explicit ScopedFd(int fd) noexcept : fd_(fd) {}
+    /** @brief 析构时关闭持有的文件描述符。
+     */
     ~ScopedFd() { reset(); }
+    /** @brief 禁止拷贝构造，避免重复关闭文件描述符。
+     * @param other 被拷贝的源对象；拷贝已删除。
+     */
     ScopedFd(const ScopedFd &) = delete;
+    /** @brief 禁止拷贝赋值，避免重复关闭文件描述符。
+     * @param other 被拷贝的源对象；拷贝已删除。
+     * @return 该运算符被删除，始终不可用。
+     */
     ScopedFd &operator=(const ScopedFd &) = delete;
+    /** @brief 移动构造，接管源对象释放的文件描述符。
+     * @param other 被移动的源对象。
+     */
     ScopedFd(ScopedFd &&other) noexcept : fd_(other.release()) {}
+    /** @brief 移动赋值，释放当前描述符后接管源对象的描述符。
+     * @param other 被移动的源对象。
+     * @return 自身引用。
+     */
     ScopedFd &operator=(ScopedFd &&other) noexcept {
         if (this != &other)
             reset(other.release());
         return *this;
     }
+    /** @brief 获取当前持有的文件描述符。
+     * @return 文件描述符；未持有时为 -1。
+     */
     [[nodiscard]] int get() const noexcept { return fd_; }
+    /** @brief 释放所有权并返回文件描述符，此后不再负责关闭。
+     * @return 原持有的文件描述符。
+     */
     int release() noexcept {
         const int fd = fd_;
         fd_ = -1;
         return fd;
     }
+    /** @brief 关闭当前文件描述符并接管新的文件描述符。
+     * @param fd 新的文件描述符，默认为 -1 表示不持有。
+     */
     void reset(int fd = -1) noexcept {
         if (fd_ >= 0)
             ::close(fd_);
@@ -51,6 +83,10 @@ class ScopedFd {
     int fd_{-1};
 };
 
+/** @brief 将文件描述符设置为非阻塞模式。
+ * @param fd 目标文件描述符。
+ * @return 成功返回空状态；失败返回 IO 错误。
+ */
 Status set_nonblocking(int fd) {
     const int flags = ::fcntl(fd, F_GETFL, 0);
     if (flags < 0 || ::fcntl(fd, F_SETFL, flags | O_NONBLOCK) < 0) {
@@ -60,6 +96,11 @@ Status set_nonblocking(int fd) {
     return {};
 }
 
+/** @brief 在超时时间内连接到指定的 Unix Socket。
+ * @param path Unix Socket 路径。
+ * @param timeout 连接超时时间。
+ * @return 成功返回已连接的 ScopedFd；失败返回相应错误。
+ */
 Result<ScopedFd> connect_with_timeout(const std::filesystem::path &path,
                                       std::chrono::milliseconds timeout) {
     const std::string text = path.string();
@@ -112,6 +153,11 @@ Result<ScopedFd> connect_with_timeout(const std::filesystem::path &path,
     return fd;
 }
 
+/** @brief 等待文件描述符变为可写。
+ * @param fd 目标文件描述符。
+ * @param timeout 等待超时时间。
+ * @return 可写返回 true；超时或轮询失败返回错误。
+ */
 Result<bool> wait_writable(int fd, std::chrono::milliseconds timeout) {
     pollfd pfd{fd, POLLOUT, 0};
     const int ready = ::poll(&pfd, 1, static_cast<int>(timeout.count()));
@@ -125,6 +171,12 @@ Result<bool> wait_writable(int fd, std::chrono::milliseconds timeout) {
                 std::string("poll 失败: ") + std::strerror(errno));
 }
 
+/** @brief 将数据完整写入文件描述符，必要时等待可写。
+ * @param fd 目标文件描述符。
+ * @param data 待发送的数据。
+ * @param timeout 等待可写的超时时间。
+ * @return 成功返回空状态；失败返回 IO 错误。
+ */
 Status write_all(int fd, std::string_view data,
                  std::chrono::milliseconds timeout) {
     std::size_t offset = 0;
@@ -150,6 +202,12 @@ Status write_all(int fd, std::string_view data,
     return {};
 }
 
+/** @brief 读取一行以换行符结尾的响应文本。
+ * @param fd 目标文件描述符。
+ * @param timeout 读取超时时间。
+ * @param max_bytes 单行响应的最大字节数。
+ * @return 成功返回不含换行符的一行文本；失败返回相应错误。
+ */
 Result<std::string> read_line(int fd, std::chrono::milliseconds timeout,
                               std::size_t max_bytes = 1024 * 1024) {
     std::string buffer;
@@ -200,15 +258,26 @@ Result<std::string> read_line(int fd, std::chrono::milliseconds timeout,
 
 } // namespace
 
+/** @brief 构造客户端并记录进程前缀用于生成请求 id。
+ * @param options 客户端配置。
+ */
 Client::Client(ClientOptions options) : options_(std::move(options)) {
     id_prefix_ = std::to_string(::getpid()) + "-";
 }
 
+/** @brief 生成单调递增的请求 id。
+ * @return 形如 "进程号-序号" 的请求 id。
+ */
 std::string Client::next_id() {
     ++counter_;
     return id_prefix_ + std::to_string(counter_);
 }
 
+/** @brief 调用命令，并按配置对可重试错误进行重试。
+ * @param cmd 命令名。
+ * @param args 命令参数。
+ * @return 成功返回响应 data；失败返回相应错误。
+ */
 Result<nlohmann::json> Client::call(std::string_view cmd,
                                     const nlohmann::json &args) {
     Result<nlohmann::json> result = fail(ErrorCode::kIoError, "未执行任何调用");
@@ -230,6 +299,11 @@ Result<nlohmann::json> Client::call(std::string_view cmd,
     return result;
 }
 
+/** @brief 执行一次完整的 IPC 请求与响应交互。
+ * @param cmd 命令名。
+ * @param args 命令参数。
+ * @return 成功返回响应 data；失败返回相应错误。
+ */
 Result<nlohmann::json> Client::call_once(std::string_view cmd,
                                          const nlohmann::json &args) {
     auto fd =

@@ -4,6 +4,8 @@
  * @details 文件位置：tests/unit/test_error.cpp（单元测试）。
  *          属于 LSW 测试与集成探针；公共行为以 docs/interfaces 与 agent.md
  * 为准。
+ * @author 琳筱筱 <341178706@qq.com>
+ * @date 2026-10-14
  */
 
 #include <catch2/catch_test_macros.hpp>
@@ -12,8 +14,12 @@
 
 namespace {
 
+/** @brief 返回成功的整型结果。
+ * @return 值为 42 的成功 Result。 */
 lsw::Result<int> succeed() { return 42; }
 
+/** @brief 构造路径映射失败的结果。
+ * @return 携带 kPathMappingFailed 错误码与消息的失败 Result。 */
 lsw::Result<int> fail_result() {
     return lsw::fail(lsw::ErrorCode::kPathMappingFailed, "outside");
 }

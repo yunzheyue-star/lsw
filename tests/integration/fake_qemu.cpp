@@ -4,6 +4,8 @@
  * @details 文件位置：tests/integration/fake_qemu.cpp（集成探针/测试替身）。
  *          属于 LSW 测试与集成探针；公共行为以 docs/interfaces 与 agent.md
  * 为准。
+ * @author 琳筱筱 <341178706@qq.com>
+ * @date 2026-10-15
  */
 
 // 假 QEMU 测试替身：只实现 QMP 握手/状态/电源命令，用于无 KVM/无固件环境。
@@ -30,8 +32,14 @@ namespace {
 volatile std::sig_atomic_t g_stop = 0;
 long g_auto_quit_ms = 0;
 std::chrono::steady_clock::time_point g_quit_deadline;
+/// @brief 记录收到终止信号，通知主循环退出。
+/// @param signal 收到的信号编号。
 void on_signal(int) { g_stop = 1; }
 
+/// @brief 将 JSON 对象序列化为一行并完整写入文件描述符。
+/// @param fd 目标文件描述符。
+/// @param value 待发送的 JSON 对象。
+/// @return 全部数据写入成功返回 true，否则返回 false。
 bool write_line(int fd, const nlohmann::json &value) {
     const std::string line = value.dump() + "\n";
     std::size_t offset = 0;
@@ -50,6 +58,10 @@ bool write_line(int fd, const nlohmann::json &value) {
     return true;
 }
 
+/// @brief 从文件描述符读取一行文本，支持自动退出超时。
+/// @param fd 已连接的套接字描述符。
+/// @param out 输出参数，接收不含换行符的一行内容。
+/// @return 成功读取一行返回 true，否则返回 false。
 bool read_line(int fd, std::string &out) {
     out.clear();
     while (!g_stop) {
@@ -91,6 +103,10 @@ bool read_line(int fd, std::string &out) {
 
 } // namespace
 
+/// @brief 假 QEMU 进程入口，提供最小 QMP 响应。
+/// @param argc 命令行参数数量。
+/// @param argv 命令行参数数组。
+/// @return 进程退出码，0 表示正常退出。
 int main(int argc, char **argv) {
     std::string qmp_spec;
     for (int i = 1; i + 1 < argc; ++i) {

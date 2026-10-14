@@ -4,6 +4,8 @@
  * @details 文件位置：src/vm/qmp_client.cpp（源文件）。
  *          属于 LSW 虚拟机管理（QEMU/QMP/安装）；公共行为以
  * docs/interfaces/qmp.md 与 agent.md 为准。
+ * @author 琳筱筱 <341178706@qq.com>
+ * @date 2026-10-15
  */
 
 #include <lsw/vm/qmp_client.hpp>
@@ -23,23 +25,53 @@ namespace {
 
 class ScopedFd {
   public:
+    /** @brief 默认构造，文件描述符置为 -1。
+     */
     ScopedFd() = default;
+    /** @brief 接管一个已有的文件描述符。
+     * @param fd 要接管的文件描述符。
+     */
     explicit ScopedFd(int fd) noexcept : fd_(fd) {}
+    /** @brief 析构时关闭持有的文件描述符。
+     */
     ~ScopedFd() { reset(); }
+    /** @brief 禁止拷贝构造，避免重复关闭文件描述符。
+     * @param other 被拷贝的源对象；拷贝已删除。
+     */
     ScopedFd(const ScopedFd &) = delete;
+    /** @brief 禁止拷贝赋值，避免重复关闭文件描述符。
+     * @param other 被拷贝的源对象；拷贝已删除。
+     * @return 该运算符被删除，始终不可用。
+     */
     ScopedFd &operator=(const ScopedFd &) = delete;
+    /** @brief 移动构造，接管源对象释放的文件描述符。
+     * @param other 被移动的源对象。
+     */
     ScopedFd(ScopedFd &&other) noexcept : fd_(other.release()) {}
+    /** @brief 移动赋值，释放当前描述符后接管源对象的描述符。
+     * @param other 被移动的源对象。
+     * @return 自身引用。
+     */
     ScopedFd &operator=(ScopedFd &&other) noexcept {
         if (this != &other)
             reset(other.release());
         return *this;
     }
+    /** @brief 获取当前持有的文件描述符。
+     * @return 文件描述符；未持有时为 -1。
+     */
     [[nodiscard]] int get() const noexcept { return fd_; }
+    /** @brief 释放所有权并返回文件描述符，此后不再负责关闭。
+     * @return 原持有的文件描述符。
+     */
     int release() noexcept {
         const int fd = fd_;
         fd_ = -1;
         return fd;
     }
+    /** @brief 关闭当前文件描述符并接管新的文件描述符。
+     * @param fd 新的文件描述符，默认为 -1 表示不持有。
+     */
     void reset(int fd = -1) noexcept {
         if (fd_ >= 0)
             ::close(fd_);
@@ -50,6 +82,10 @@ class ScopedFd {
     int fd_{-1};
 };
 
+/** @brief 将 QMP socket 文件描述符设置为非阻塞模式。
+ * @param fd 目标文件描述符。
+ * @return 成功返回空状态；失败返回 QEMU 错误。
+ */
 Status set_nonblocking(int fd) {
     const int flags = ::fcntl(fd, F_GETFL, 0);
     if (flags < 0 || ::fcntl(fd, F_SETFL, flags | O_NONBLOCK) < 0) {
@@ -61,10 +97,18 @@ Status set_nonblocking(int fd) {
 
 } // namespace
 
+/** @brief 构造 QMP 客户端并保存配置。
+ * @param options QMP 客户端配置。
+ */
 QmpClient::QmpClient(QmpOptions options) : options_(std::move(options)) {}
 
+/** @brief 析构时关闭 QMP 连接。
+ */
 QmpClient::~QmpClient() { close(); }
 
+/** @brief 移动构造，接管源客户端的连接与读缓冲。
+ * @param other 被移动的源对象。
+ */
 QmpClient::QmpClient(QmpClient &&other) noexcept
     : options_(std::move(other.options_)), fd_(other.fd_),
       read_buffer_(std::move(other.read_buffer_)), next_id_(other.next_id_),
@@ -74,6 +118,10 @@ QmpClient::QmpClient(QmpClient &&other) noexcept
     other.read_buffer_.clear();
 }
 
+/** @brief 移动赋值，关闭当前连接后接管源客户端状态。
+ * @param other 被移动的源对象。
+ * @return 自身引用。
+ */
 QmpClient &QmpClient::operator=(QmpClient &&other) noexcept {
     if (this != &other) {
         close();
@@ -88,6 +136,8 @@ QmpClient &QmpClient::operator=(QmpClient &&other) noexcept {
     return *this;
 }
 
+/** @brief 关闭 QMP 连接并清理读缓冲。
+ */
 void QmpClient::close() noexcept {
     read_buffer_.clear();
     if (fd_ >= 0) {
@@ -98,6 +148,9 @@ void QmpClient::close() noexcept {
     connected_ = false;
 }
 
+/** @brief 尝试建立一次 QMP Unix Socket 连接。
+ * @return 成功返回 socket 文件描述符；失败返回 QEMU 错误。
+ */
 Result<int> QmpClient::connect_once() {
     const std::string path = options_.socket_path.string();
     if (path.size() >= sizeof(sockaddr_un::sun_path)) {
@@ -146,6 +199,9 @@ Result<int> QmpClient::connect_once() {
     return fd.release();
 }
 
+/** @brief 从 QMP 连接读取一行 JSON 文本。
+ * @return 成功返回一行 JSON 文本；失败返回 QEMU 错误。
+ */
 Result<std::string> QmpClient::read_line() {
     // 持久缓冲：一次 recv 可能包含多行，必须保留未消费部分。
     const auto deadline =
@@ -197,6 +253,10 @@ Result<std::string> QmpClient::read_line() {
     }
 }
 
+/** @brief 将 QMP 命令数据完整写入连接。
+ * @param data 待发送的数据。
+ * @return 成功返回空状态；失败返回 QEMU 错误。
+ */
 Status QmpClient::write_all(std::string_view data) {
     const auto deadline =
         std::chrono::steady_clock::now() + options_.io_timeout;
@@ -234,6 +294,12 @@ Status QmpClient::write_all(std::string_view data) {
     return {};
 }
 
+/** @brief 发送 QMP 命令并等待匹配的响应，同时跳过异步事件。
+ * @param command QMP 命令名。
+ * @param args 命令参数。
+ * @param require_connected 是否要求已完成 QMP 握手。
+ * @return 成功返回响应的 return 字段；失败返回 QEMU 错误。
+ */
 Result<nlohmann::json> QmpClient::send_command(std::string_view command,
                                                const nlohmann::json &args,
                                                bool require_connected) {
@@ -280,6 +346,9 @@ Result<nlohmann::json> QmpClient::send_command(std::string_view command,
     }
 }
 
+/** @brief 读取 greeting 并执行 qmp_capabilities 握手。
+ * @return 成功返回空结果；失败返回 QEMU 错误。
+ */
 Result<void> QmpClient::handshake() {
     auto greeting = read_line();
     if (!greeting) {
@@ -298,6 +367,9 @@ Result<void> QmpClient::handshake() {
     return {};
 }
 
+/** @brief 在超时时间内等待 socket 出现并完成 QMP 握手。
+ * @return 成功返回空结果；失败返回 QEMU 错误。
+ */
 Result<void> QmpClient::connect() {
     close();
     const auto deadline =
@@ -320,11 +392,19 @@ Result<void> QmpClient::connect() {
     return {};
 }
 
+/** @brief 在已连接状态下执行 QMP 命令。
+ * @param command QMP 命令名。
+ * @param args 命令参数。
+ * @return 成功返回响应的 return 字段；失败返回 QEMU 错误。
+ */
 Result<nlohmann::json> QmpClient::execute(std::string_view command,
                                           const nlohmann::json &args) {
     return send_command(command, args, true);
 }
 
+/** @brief 请求 QEMU 执行 system_powerdown。
+ * @return 成功返回空结果；失败返回 QEMU 错误。
+ */
 Result<void> QmpClient::system_powerdown() {
     auto result = execute("system_powerdown");
     if (!result) {
@@ -333,6 +413,9 @@ Result<void> QmpClient::system_powerdown() {
     return {};
 }
 
+/** @brief 查询虚拟机是否处于 running 或 paused 状态。
+ * @return 存活返回 true，否则 false；查询失败返回 QEMU 错误。
+ */
 Result<bool> QmpClient::query_status() {
     auto result = execute("query-status");
     if (!result) {

@@ -4,6 +4,8 @@
  * @details 文件位置：tests/integration/install_probe.cpp（集成探针/测试替身）。
  *          属于 LSW 测试与集成探针；公共行为以 docs/interfaces 与 agent.md
  * 为准。
+ * @author 琳筱筱 <341178706@qq.com>
+ * @date 2026-10-15
  */
 
 // 安装流程集成探针：使用假 QEMU 走通 Installer::run()。
@@ -21,6 +23,9 @@
 
 namespace {
 
+/// @brief 创建文件父目录并写入内容。
+/// @param path 目标文件路径。
+/// @param content 要写入文件的内容，默认值为 "x"。
 void touch(const std::filesystem::path &path,
            const std::string &content = "x") {
     std::filesystem::create_directories(path.parent_path());
@@ -30,6 +35,10 @@ void touch(const std::filesystem::path &path,
 
 } // namespace
 
+/// @brief 安装流程集成探针入口，使用假 QEMU 执行 Installer::run。
+/// @param argc 命令行参数数量。
+/// @param argv 命令行参数数组：<fake-qemu> <workdir>。
+/// @return 0 表示安装流程走通，非 0 表示失败。
 int main(int argc, char **argv) {
     if (argc < 3) {
         std::cerr << "用法: lsw_install_probe <fake-qemu> <workdir>\n";

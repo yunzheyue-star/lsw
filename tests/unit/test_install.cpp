@@ -4,6 +4,8 @@
  * @details 文件位置：tests/unit/test_install.cpp（单元测试）。
  *          属于 LSW 测试与集成探针；公共行为以 docs/interfaces 与 agent.md
  * 为准。
+ * @author 琳筱筱 <341178706@qq.com>
+ * @date 2026-10-15
  */
 
 #include <catch2/catch_test_macros.hpp>
@@ -39,6 +41,9 @@ struct Fixture {
     XdgPaths paths;
     Config config;
 
+    /**
+     * @brief 构造测试夹具并初始化临时 XDG 路径与默认配置。
+     */
     Fixture() {
         PathEnvironment env;
         env.home = temp.path() / "home";
@@ -54,6 +59,11 @@ struct Fixture {
         config.vm.disk = temp.path() / "vm" / "disk.qcow2";
     }
 
+    /**
+     * @brief 在指定路径创建文件并写入内容，必要时创建父目录。
+     * @param path 目标文件路径。
+     * @param content 写入文件的正文，默认为 "x"。
+     */
     void touch(const std::filesystem::path &path,
                const std::string &content = "x") const {
         std::filesystem::create_directories(path.parent_path());
@@ -61,18 +71,32 @@ struct Fixture {
         out << content;
     }
 
+    /**
+     * @brief 创建测试用假 ISO 文件。
+     * @param name 相对于临时目录的文件名。
+     * @return 新建 ISO 文件的完整路径。
+     */
     std::filesystem::path make_iso(const std::string &name) const {
         const auto path = temp.path() / name;
         touch(path, "fake-iso");
         return path;
     }
 
+    /**
+     * @brief 创建测试用假 OVMF 固件文件。
+     * @param name 相对于临时目录的文件名。
+     * @return 新建固件文件的完整路径。
+     */
     std::filesystem::path make_ovmf(const std::string &name) const {
         const auto path = temp.path() / name;
         touch(path, "fake-ovmf");
         return path;
     }
 
+    /**
+     * @brief 基于当前夹具状态生成完整的安装选项。
+     * @return 已填充测试资源路径与假 QEMU 参数的安装选项。
+     */
     InstallOptions options() const {
         InstallOptions options;
         options.windows_iso = make_iso("win11.iso");
@@ -93,9 +117,17 @@ struct Fixture {
 };
 
 struct ScopedEnv {
+    /**
+     * @brief 构造时设置指定的环境变量。
+     * @param name 环境变量名。
+     * @param value 环境变量值。
+     */
     ScopedEnv(const char *name, const char *value) : name_(name) {
         ::setenv(name, value, 1);
     }
+    /**
+     * @brief 析构时清理由本对象设置的环境变量。
+     */
     ~ScopedEnv() { ::unsetenv(name_.c_str()); }
     std::string name_;
 };

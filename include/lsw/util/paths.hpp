@@ -4,6 +4,8 @@
  * @details 文件位置：include/lsw/util/paths.hpp（头文件）。
  *          属于 LSW 工具库；公共行为以 docs/interfaces/core.md 与 agent.md
  * 为准。
+ * @author 琳筱筱 <341178706@qq.com>
+ * @date 2026-10-14
  */
 
 #pragma once
@@ -26,6 +28,8 @@ struct PathEnvironment {
     std::optional<fs::path> xdg_state_home;
     std::optional<fs::path> xdg_runtime_dir;
 
+    /// @brief 从当前进程环境变量构造路径环境快照。
+    /// @return 包含 HOME、XDG_* 等环境变量的路径环境。
     [[nodiscard]] static PathEnvironment from_process();
 };
 
@@ -41,12 +45,19 @@ struct XdgPaths {
 /// @brief 按 XDG 规范解析路径；HOME 缺失返回 kInvalidArgument。
 /// XDG_RUNTIME_DIR 缺失时回退到系统临时目录下的
 /// lsw-runtime-<uid>（仅无会话环境）。
+/// @param env 路径环境快照。
+/// @return 解析成功返回 XdgPaths，失败返回错误。
 [[nodiscard]] Result<XdgPaths> resolve_paths(const PathEnvironment &env);
 
 /// @brief 创建全部目录；runtime_dir 权限收敛为 0700。
+/// @param paths 待创建的路径集合。
+/// @return 创建成功返回成功状态，失败返回错误。
 [[nodiscard]] Status ensure_directories(const XdgPaths &paths);
 
 /// @brief 展开开头的 `~` 与 `~/`；其他路径原样返回。HOME 缺失时返回错误。
+/// @param path 待展开的路径。
+/// @param env 路径环境快照。
+/// @return 展开后的路径，失败返回错误。
 [[nodiscard]] Result<fs::path> expand_tilde(const fs::path &path,
                                             const PathEnvironment &env);
 

@@ -4,6 +4,8 @@
  * @details 文件位置：tests/unit/test_qemu_args.cpp（单元测试）。
  *          属于 LSW 测试与集成探针；公共行为以 docs/interfaces 与 agent.md
  * 为准。
+ * @author 琳筱筱 <341178706@qq.com>
+ * @date 2026-10-15
  */
 
 #include <catch2/catch_test_macros.hpp>
@@ -27,6 +29,9 @@ using lsw::vm::QemuVmOptions;
 
 namespace {
 
+/// @brief 根据临时目录创建测试所需的 XDG 路径。
+/// @param temp 测试临时目录。
+/// @return 已解析并确保存在的 XDG 路径。
 XdgPaths make_paths(const lsw::test::TempDir &temp) {
     PathEnvironment env;
     env.home = temp.path();
@@ -40,6 +45,9 @@ XdgPaths make_paths(const lsw::test::TempDir &temp) {
     return *paths;
 }
 
+/// @brief 构造用于 QEMU 参数构建测试的选项。
+/// @param temp 测试临时目录。
+/// @return 测试用 QEMU 虚拟机选项。
 QemuVmOptions test_options(const lsw::test::TempDir &temp) {
     QemuVmOptions options;
     options.qemu_binary = "qemu-system-x86_64";
@@ -50,6 +58,11 @@ QemuVmOptions test_options(const lsw::test::TempDir &temp) {
     return options;
 }
 
+/// @brief 判断参数列表中是否存在指定的键值对。
+/// @param args 待搜索的参数列表。
+/// @param key 键名。
+/// @param value 键值。
+/// @return 找到匹配键值对时返回 true，否则返回 false。
 bool has_pair(const std::vector<std::string> &args, const std::string &key,
               const std::string &value) {
     for (std::size_t i = 0; i + 1 < args.size(); ++i) {
@@ -60,6 +73,10 @@ bool has_pair(const std::vector<std::string> &args, const std::string &key,
     return false;
 }
 
+/// @brief 判断参数列表中是否存在包含指定片段的参数。
+/// @param args 待搜索的参数列表。
+/// @param fragment 要匹配的片段。
+/// @return 找到包含指定片段的参数时返回 true，否则返回 false。
 bool has_arg_containing(const std::vector<std::string> &args,
                         const std::string &fragment) {
     for (const auto &arg : args) {

@@ -4,6 +4,8 @@
  * @details 文件位置：src/util/log.cpp（源文件）。
  *          属于 LSW 工具库；公共行为以 docs/interfaces/core.md 与 agent.md
  * 为准。
+ * @author 琳筱筱 <341178706@qq.com>
+ * @date 2026-10-14
  */
 
 #include <lsw/util/log.hpp>
@@ -20,6 +22,10 @@ std::shared_ptr<spdlog::logger> g_logger;
 
 } // namespace
 
+/// @brief 初始化日志：创建 rotating 文件 sink 并注册为默认 logger。
+/// @param log_file 日志文件路径。
+/// @param level 日志级别。
+/// @return 成功返回空 Status；目录或文件不可用时返回 kIoError。
 Status init(const std::filesystem::path &log_file,
             spdlog::level::level_enum level) {
     try {
@@ -46,6 +52,8 @@ Status init(const std::filesystem::path &log_file,
     }
 }
 
+/// @brief 获取 LSW logger；未初始化时回退到 spdlog 默认 logger。
+/// @return 日志记录器共享指针。
 std::shared_ptr<spdlog::logger> logger() {
     if (g_logger) {
         return g_logger;
@@ -53,6 +61,7 @@ std::shared_ptr<spdlog::logger> logger() {
     return spdlog::default_logger();
 }
 
+/// @brief 刷新并释放全局 logger，主要供测试与进程退出使用。
 void shutdown() noexcept {
     if (g_logger) {
         g_logger->flush();

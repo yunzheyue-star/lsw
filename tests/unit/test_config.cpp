@@ -4,6 +4,8 @@
  * @details 文件位置：tests/unit/test_config.cpp（单元测试）。
  *          属于 LSW 测试与集成探针；公共行为以 docs/interfaces 与 agent.md
  * 为准。
+ * @author 琳筱筱 <341178706@qq.com>
+ * @date 2026-10-14
  */
 
 #include <catch2/catch_test_macros.hpp>
@@ -47,6 +49,8 @@ windows_drive_z = "Z:"
 windows_user = "alice"
 )toml";
 
+/** @brief 构造测试用路径环境。
+ * @return HOME 为 /home/alice 的 PathEnvironment。 */
 PathEnvironment test_env() {
     PathEnvironment env;
     env.home = "/home/alice";

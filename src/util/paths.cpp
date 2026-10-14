@@ -4,6 +4,8 @@
  * @details 文件位置：src/util/paths.cpp（源文件）。
  *          属于 LSW 工具库；公共行为以 docs/interfaces/core.md 与 agent.md
  * 为准。
+ * @author 琳筱筱 <341178706@qq.com>
+ * @date 2026-10-14
  */
 
 #include <lsw/util/paths.hpp>
@@ -15,6 +17,9 @@
 namespace lsw {
 namespace {
 
+/// @brief 从进程环境读取可选路径变量。
+/// @param name 环境变量名。
+/// @return 变量存在且非空时返回路径；否则返回 std::nullopt。
 std::optional<fs::path> env_path(const char *name) {
     const char *value = std::getenv(name);
     if (value == nullptr || *value == '\0') {
@@ -25,6 +30,8 @@ std::optional<fs::path> env_path(const char *name) {
 
 } // namespace
 
+/// @brief 从当前进程环境构造路径解析所需的快照。
+/// @return 包含 HOME 与各 XDG 环境变量的路径快照。
 PathEnvironment PathEnvironment::from_process() {
     PathEnvironment env;
     env.home = env_path("HOME");
@@ -35,6 +42,9 @@ PathEnvironment PathEnvironment::from_process() {
     return env;
 }
 
+/// @brief 根据 XDG 规范解析 LSW 使用的全部路径。
+/// @param env 路径解析所需的环境快照。
+/// @return 解析后的路径集合；HOME 缺失时返回 kInvalidArgument。
 Result<XdgPaths> resolve_paths(const PathEnvironment &env) {
     if (!env.home.has_value() || env.home->empty()) {
         return fail(ErrorCode::kInvalidArgument,
@@ -58,6 +68,9 @@ Result<XdgPaths> resolve_paths(const PathEnvironment &env) {
     return paths;
 }
 
+/// @brief 创建全部 LSW 目录并收紧运行时目录权限。
+/// @param paths 待创建的路径集合。
+/// @return 成功返回空 Status；创建或设置权限失败返回 kIoError。
 Status ensure_directories(const XdgPaths &paths) {
     try {
         fs::create_directories(paths.config_file.parent_path());
@@ -73,6 +86,10 @@ Status ensure_directories(const XdgPaths &paths) {
     }
 }
 
+/// @brief 展开路径开头的 ~ 与 ~/；其他路径原样返回。
+/// @param path 待展开的路径。
+/// @param env 提供 HOME 的环境快照。
+/// @return 展开后的路径；需要 HOME 但缺失时返回 kInvalidArgument。
 Result<fs::path> expand_tilde(const fs::path &path,
                               const PathEnvironment &env) {
     const std::string text = path.string();

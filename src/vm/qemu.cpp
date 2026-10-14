@@ -4,6 +4,8 @@
  * @details 文件位置：src/vm/qemu.cpp（源文件）。
  *          属于 LSW 虚拟机管理（QEMU/QMP/安装）；公共行为以
  * docs/interfaces/qmp.md 与 agent.md 为准。
+ * @author 琳筱筱 <341178706@qq.com>
+ * @date 2026-10-15
  */
 
 #include <lsw/vm/qemu.hpp>
@@ -17,16 +19,30 @@
 namespace lsw::vm {
 namespace {
 
+/** @brief 拼接 QEMU 参数的键与值。
+ * @param key 参数键。
+ * @param value 参数值。
+ * @return 拼接后的参数文本。
+ */
 std::string arg_join(const std::string &key, const std::string &value) {
     return key + value;
 }
 
+/** @brief 判断路径是否为可执行的普通文件。
+ * @param path 待检查的路径。
+ * @return 是可执行普通文件返回 true，否则返回 false。
+ */
 bool executable_file(const std::filesystem::path &path) {
     std::error_code error;
     return std::filesystem::is_regular_file(path, error) &&
            ::access(path.c_str(), X_OK) == 0;
 }
 
+/** @brief 读取文件末尾的有限字节，用于错误诊断。
+ * @param file 待读取的文件路径。
+ * @param max_bytes 最多读取的字节数。
+ * @return 文件末尾内容；无法读取时返回空字符串。
+ */
 std::string read_file_tail(const std::filesystem::path &file,
                            std::size_t max_bytes = 4096) {
     std::ifstream input(file, std::ios::binary);
@@ -49,6 +65,10 @@ std::string read_file_tail(const std::filesystem::path &file,
 
 } // namespace
 
+/** @brief 将虚拟机状态枚举转换为字符串。
+ * @param status 虚拟机状态。
+ * @return 状态对应的字符串。
+ */
 std::string_view to_string(VmStatus status) noexcept {
     switch (status) {
     case VmStatus::kStopped:
@@ -63,6 +83,10 @@ std::string_view to_string(VmStatus status) noexcept {
     return "unknown";
 }
 
+/** @brief 在 PATH 或给定路径中查找可执行文件。
+ * @param name 可执行文件名或路径。
+ * @return 找到的可执行文件路径；找不到返回空路径。
+ */
 std::filesystem::path find_executable(std::string_view name) {
     const std::filesystem::path candidate(name);
     if (candidate.has_parent_path()) {
@@ -92,6 +116,9 @@ std::filesystem::path find_executable(std::string_view name) {
     return {};
 }
 
+/** @brief 返回 OVMF CODE 固件的候选路径。
+ * @return 候选路径列表。
+ */
 std::vector<std::filesystem::path> ovmf_code_candidates() {
     return {
         "/usr/share/OVMF/OVMF_CODE.fd",    // Debian / Ubuntu
@@ -106,6 +133,9 @@ std::vector<std::filesystem::path> ovmf_code_candidates() {
     };
 }
 
+/** @brief 返回 OVMF VARS 模板的候选路径。
+ * @return 候选路径列表。
+ */
 std::vector<std::filesystem::path> ovmf_vars_candidates() {
     return {
         "/usr/share/OVMF/OVMF_VARS.fd",    // Debian / Ubuntu
@@ -120,6 +150,9 @@ std::vector<std::filesystem::path> ovmf_vars_candidates() {
     };
 }
 
+/** @brief 探测 OVMF CODE 固件是否存在。
+ * @return 找到时返回路径；否则返回 nullopt。
+ */
 std::optional<std::filesystem::path> detect_ovmf_code() {
     for (const auto &candidate : ovmf_code_candidates()) {
         std::error_code error;
@@ -130,6 +163,9 @@ std::optional<std::filesystem::path> detect_ovmf_code() {
     return std::nullopt;
 }
 
+/** @brief 探测 OVMF VARS 模板是否存在。
+ * @return 找到时返回路径；否则返回 nullopt。
+ */
 std::optional<std::filesystem::path> detect_ovmf_vars_template() {
     for (const auto &candidate : ovmf_vars_candidates()) {
         std::error_code error;
@@ -140,6 +176,10 @@ std::optional<std::filesystem::path> detect_ovmf_vars_template() {
     return std::nullopt;
 }
 
+/** @brief 判断 swtpm 可执行文件是否可用。
+ * @param binary swtpm 可执行文件路径或命令名。
+ * @return 可用返回 true，否则返回 false。
+ */
 bool swtpm_available(const std::filesystem::path &binary) {
     if (binary.empty()) {
         return false;
@@ -150,6 +190,11 @@ bool swtpm_available(const std::filesystem::path &binary) {
     return !find_executable(binary.string()).empty();
 }
 
+/** @brief 构造 swtpm 进程参数。
+ * @param options QEMU 虚拟机选项。
+ * @param paths XDG 数据与运行时路径。
+ * @return 成功返回参数列表；失败返回缺失依赖等错误。
+ */
 Result<std::vector<std::string>> build_swtpm_args(const QemuVmOptions &options,
                                                   const XdgPaths &paths) {
     if (!options.enable_swtpm) {
@@ -179,6 +224,13 @@ Result<std::vector<std::string>> build_swtpm_args(const QemuVmOptions &options,
     };
 }
 
+/** @brief 构造完整的 QEMU 启动参数。
+ * @param config 全局配置。
+ * @param paths XDG 数据与运行时路径。
+ * @param options QEMU 虚拟机选项。
+ * @param install_mode 是否为安装模式。
+ * @return 成功返回参数列表；失败返回相应错误。
+ */
 Result<std::vector<std::string>> build_qemu_args(const Config &config,
                                                  const XdgPaths &paths,
                                                  const QemuVmOptions &options,
@@ -313,6 +365,11 @@ Result<std::vector<std::string>> build_qemu_args(const Config &config,
     return args;
 }
 
+/** @brief 构造虚拟机对象并推导运行时路径。
+ * @param config 全局配置。
+ * @param paths XDG 数据与运行时路径。
+ * @param options QEMU 虚拟机选项。
+ */
 QemuVm::QemuVm(Config config, XdgPaths paths, QemuVmOptions options)
     : config_(std::move(config)), paths_(std::move(paths)),
       options_(std::move(options)) {
@@ -330,6 +387,10 @@ QemuVm::QemuVm(Config config, XdgPaths paths, QemuVmOptions options)
     }
 }
 
+/** @brief 按指定模式启动 QEMU 并完成 QMP 握手。
+ * @param install_mode 是否为安装模式。
+ * @return 成功返回空结果；失败返回 QEMU 错误。
+ */
 Result<void> QemuVm::launch(bool install_mode) {
     if (running()) {
         return fail(ErrorCode::kQemuError, "QEMU 已在运行");
@@ -403,15 +464,30 @@ Result<void> QemuVm::launch(bool install_mode) {
     return {};
 }
 
+/** @brief 以运行模式启动虚拟机。
+ * @return 成功返回空结果；失败返回 QEMU 错误。
+ */
 Result<void> QemuVm::start() { return launch(false); }
+/** @brief 以安装模式启动虚拟机。
+ * @return 成功返回空结果；失败返回 QEMU 错误。
+ */
 Result<void> QemuVm::start_install() { return launch(true); }
 
+/** @brief 判断 QEMU 进程当前是否在运行。
+ * @return 在运行返回 true，否则返回 false。
+ */
 bool QemuVm::running() { return process_.has_value() && process_->running(); }
 
+/** @brief 获取 QEMU 进程号。
+ * @return 进程号；未启动时为 -1。
+ */
 int QemuVm::pid() const noexcept {
     return process_.has_value() ? process_->pid() : -1;
 }
 
+/** @brief 通过 QMP 查询虚拟机状态。
+ * @return 成功返回虚拟机状态；失败返回 QEMU 错误。
+ */
 Result<VmStatus> QemuVm::status() {
     if (!running()) {
         return VmStatus::kStopped;
@@ -436,6 +512,9 @@ Result<VmStatus> QemuVm::status() {
     return VmStatus::kUnknown;
 }
 
+/** @brief 优雅关闭虚拟机，超时后以信号兜底。
+ * @return 成功返回空结果。
+ */
 Result<void> QemuVm::shutdown() {
     if (!running()) {
         qmp_.reset();
@@ -463,6 +542,9 @@ Result<void> QemuVm::shutdown() {
     return {};
 }
 
+/** @brief 等待 QEMU 进程结束并清理 QMP 与 swtpm。
+ * @return 成功返回进程退出码；失败返回错误。
+ */
 Result<int> QemuVm::wait() {
     if (!process_.has_value()) {
         return fail(ErrorCode::kQemuError, "QEMU 未启动");
@@ -473,6 +555,9 @@ Result<int> QemuVm::wait() {
     return result;
 }
 
+/** @brief 强制结束 QEMU 进程并清理相关资源。
+ * @return 成功返回空状态。
+ */
 Status QemuVm::kill() {
     if (process_.has_value()) {
         (void)process_->kill();

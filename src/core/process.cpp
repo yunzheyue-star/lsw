@@ -4,6 +4,8 @@
  * @details 文件位置：src/core/process.cpp（源文件）。
  *          属于 LSW 核心库；公共行为以 docs/interfaces/core.md 与 agent.md
  * 为准。
+ * @author 琳筱筱 <341178706@qq.com>
+ * @date 2026-10-14
  */
 
 #include <lsw/core/process.hpp>
@@ -25,12 +27,26 @@ namespace {
 
 class ScopedFd {
   public:
+    /// @brief 默认构造：持有无效的文件描述符。
     ScopedFd() = default;
+    /// @brief 接管一个文件描述符的 RAII 构造函数。
+    /// @param fd 要接管的文件描述符。
     explicit ScopedFd(int fd) noexcept : fd_(fd) {}
+    /// @brief 析构时关闭仍持有的文件描述符。
     ~ScopedFd() { reset(); }
+    /// @brief 禁止拷贝构造，避免文件描述符被重复关闭。
+    /// @param other 待拷贝的源对象；该重载已删除。
     ScopedFd(const ScopedFd &) = delete;
+    /// @brief 禁止拷贝赋值，避免文件描述符被重复关闭。
+    /// @param other 待赋值的源对象；该重载已删除。
+    /// @return 该重载已删除，不会返回。
     ScopedFd &operator=(const ScopedFd &) = delete;
+    /// @brief 移动构造：从 other 转移文件描述符所有权。
+    /// @param other 被移动的源对象。
     ScopedFd(ScopedFd &&other) noexcept : fd_(other.release()) {}
+    /// @brief 移动赋值：先释放当前描述符，再转移 other 的所有权。
+    /// @param other 被移动的源对象。
+    /// @return 当前对象的引用。
     ScopedFd &operator=(ScopedFd &&other) noexcept {
         if (this != &other) {
             reset(other.release());
@@ -38,14 +54,20 @@ class ScopedFd {
         return *this;
     }
 
+    /// @brief 获取当前持有的文件描述符。
+    /// @return 文件描述符；未持有时返回 -1。
     [[nodiscard]] int get() const noexcept { return fd_; }
 
+    /// @brief 释放所有权并返回文件描述符，不关闭它。
+    /// @return 当前持有的文件描述符。
     int release() noexcept {
         const int fd = fd_;
         fd_ = -1;
         return fd;
     }
 
+    /// @brief 关闭当前文件描述符并接管新文件描述符。
+    /// @param fd 要接管的新文件描述符，默认 -1 表示仅关闭旧描述符。
     void reset(int fd = -1) noexcept {
         if (fd_ >= 0) {
             ::close(fd_);
@@ -57,6 +79,10 @@ class ScopedFd {
     int fd_{-1};
 };
 
+/// @brief 创建带 CLOEXEC 标记的管道。
+/// @param read_end 输出参数，接收管道读端。
+/// @param write_end 输出参数，接收管道写端。
+/// @return 成功返回空 Status；失败返回 kProcessError。
 Status make_pipe(ScopedFd &read_end, ScopedFd &write_end) {
     int fds[2] = {-1, -1};
     if (::pipe(fds) != 0) {
@@ -74,6 +100,9 @@ Status make_pipe(ScopedFd &read_end, ScopedFd &write_end) {
     return {};
 }
 
+/// @brief 将文件描述符设置为非阻塞模式。
+/// @param fd 待设置的文件描述符。
+/// @return 成功返回空 Status；失败返回 kProcessError。
 Status set_nonblocking(int fd) {
     const int flags = ::fcntl(fd, F_GETFL, 0);
     if (flags < 0 || ::fcntl(fd, F_SETFL, flags | O_NONBLOCK) < 0) {
@@ -83,6 +112,8 @@ Status set_nonblocking(int fd) {
     return {};
 }
 
+/// @brief 向进程发送 SIGKILL 并阻塞回收，避免僵尸进程。
+/// @param pid 目标进程 ID。
 void kill_and_reap(pid_t pid) {
     ::kill(pid, SIGKILL);
     int status = 0;
@@ -90,6 +121,9 @@ void kill_and_reap(pid_t pid) {
     }
 }
 
+/// @brief 将 waitpid 返回的状态解码为退出码。
+/// @param status waitpid 填写的状态值。
+/// @return 正常退出返回退出码，被信号终止返回 128+信号，其他返回 -1。
 int decode_status(int status) {
     if (WIFEXITED(status)) {
         return WEXITSTATUS(status);
@@ -108,6 +142,10 @@ struct Capture {
 
 } // namespace
 
+/// @brief 同步运行外部程序并捕获标准输出与标准错误。
+/// @param argv 命令与参数列表，第一项为可执行文件。
+/// @param options 运行选项，包括工作目录与超时。
+/// @return 运行结果；参数、执行、I/O 或超时错误时返回对应错误。
 Result<ProcessResult> run_process(const std::vector<std::string> &argv,
                                   const RunOptions &options) {
     if (argv.empty() || argv.front().empty()) {
@@ -301,6 +339,10 @@ Result<ProcessResult> run_process(const std::vector<std::string> &argv,
 
 namespace {
 
+/// @brief 打开子进程输出重定向目标。
+/// @param file 重定向文件；为空时使用 /dev/null。
+/// @param fd 输出参数，接收打开的文件描述符。
+/// @return 成功返回空 Status；失败返回 kIoError。
 Status open_redirect(const std::optional<std::filesystem::path> &file,
                      int &fd) {
     if (file.has_value()) {
@@ -323,12 +365,17 @@ Status open_redirect(const std::optional<std::filesystem::path> &file,
 
 namespace core {
 
+/// @brief 移动构造：从 other 转移子进程句柄与退出码。
+/// @param other 被移动的源对象。
 ChildProcess::ChildProcess(ChildProcess &&other) noexcept
     : pid_(other.pid_), exit_code_(other.exit_code_) {
     other.pid_ = -1;
     other.exit_code_.reset();
 }
 
+/// @brief 移动赋值：接管 other 的句柄，必要时先终止当前子进程。
+/// @param other 被移动的源对象。
+/// @return 当前对象的引用。
 ChildProcess &ChildProcess::operator=(ChildProcess &&other) noexcept {
     if (this != &other) {
         if (valid() && !exit_code_.has_value()) {
@@ -343,6 +390,7 @@ ChildProcess &ChildProcess::operator=(ChildProcess &&other) noexcept {
     return *this;
 }
 
+/// @brief 析构时终止并回收仍存活的子进程。
 ChildProcess::~ChildProcess() {
     if (valid() && !exit_code_.has_value()) {
         (void)send_signal(SIGKILL);
@@ -350,6 +398,10 @@ ChildProcess::~ChildProcess() {
     }
 }
 
+/// @brief 创建子进程并重定向标准输出与标准错误。
+/// @param argv 命令与参数列表，第一项为可执行文件。
+/// @param options 启动选项，包括工作目录与输出重定向。
+/// @return 创建成功的 ChildProcess；失败时返回对应错误。
 Result<ChildProcess> ChildProcess::spawn(const std::vector<std::string> &argv,
                                          const SpawnOptions &options) {
     if (argv.empty() || argv.front().empty()) {
@@ -451,6 +503,7 @@ Result<ChildProcess> ChildProcess::spawn(const std::vector<std::string> &argv,
     return child;
 }
 
+/// @brief 非阻塞回收已退出的子进程并记录退出码。
 void ChildProcess::reap_nonblocking() noexcept {
     if (!valid() || exit_code_.has_value()) {
         return;
@@ -464,11 +517,15 @@ void ChildProcess::reap_nonblocking() noexcept {
     }
 }
 
+/// @brief 判断子进程是否仍在运行，并顺带非阻塞回收。
+/// @return 子进程仍在运行时返回 true，否则返回 false。
 bool ChildProcess::running() {
     reap_nonblocking();
     return valid() && !exit_code_.has_value();
 }
 
+/// @brief 阻塞等待子进程退出。
+/// @return 子进程退出码；等待失败时返回错误。
 Result<int> ChildProcess::wait() {
     if (exit_code_.has_value()) {
         return *exit_code_;
@@ -489,6 +546,9 @@ Result<int> ChildProcess::wait() {
     return *exit_code_;
 }
 
+/// @brief 在限定时间内等待子进程退出。
+/// @param timeout 最大等待时长。
+/// @return 已退出时返回退出码；超时返回 kProcessTimeout。
 Result<int> ChildProcess::wait_for(std::chrono::milliseconds timeout) {
     if (exit_code_.has_value()) {
         return *exit_code_;
@@ -509,6 +569,9 @@ Result<int> ChildProcess::wait_for(std::chrono::milliseconds timeout) {
     return fail(ErrorCode::kProcessTimeout, "等待进程退出超时");
 }
 
+/// @brief 向子进程发送指定信号。
+/// @param signal 要发送的信号编号。
+/// @return 成功返回空 Status；发送失败返回 kProcessError。
 Status ChildProcess::send_signal(int signal) noexcept {
     if (!valid() || exit_code_.has_value()) {
         return {};
@@ -522,6 +585,10 @@ Status ChildProcess::send_signal(int signal) noexcept {
 
 } // namespace core
 
+/// @brief 以脱离终端的方式启动后台进程（双重 fork + setsid）。
+/// @param argv 命令与参数列表，第一项为可执行文件。
+/// @param options 启动选项，包括工作目录与输出重定向。
+/// @return 成功返回空 Status；失败返回 kProcessError。
 Status spawn_detached(const std::vector<std::string> &argv,
                       const core::SpawnOptions &options) {
     if (argv.empty() || argv.front().empty()) {

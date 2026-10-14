@@ -4,6 +4,8 @@
  * @details 文件位置：tests/integration/qmp_probe.cpp（集成探针/测试替身）。
  *          属于 LSW 测试与集成探针；公共行为以 docs/interfaces 与 agent.md
  * 为准。
+ * @author 琳筱筱 <341178706@qq.com>
+ * @date 2026-10-15
  */
 
 // QMP 探针：供 scripts/verify-p3.sh 对真实 QEMU 做冒烟测试。
@@ -15,6 +17,10 @@
 
 #include <lsw/vm/qmp_client.hpp>
 
+/// @brief QMP 集成探针入口，对 QEMU 执行冒烟测试命令。
+/// @param argc 命令行参数数量。
+/// @param argv 命令行参数数组：<qmp-socket> [command] [json-args]。
+/// @return 0 表示 QMP 调用成功，非 0 表示参数或调用失败。
 int main(int argc, char **argv) {
     if (argc < 2) {
         std::cerr << "用法: lsw_qmp_probe <qmp-socket> [command] [json-args]\n";
