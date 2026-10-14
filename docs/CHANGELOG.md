@@ -27,6 +27,9 @@
 - CLI：CLI11 接入 `lsw --install` / `--iso` / `--virtio-iso` / `--disk` / `--version` / `--help`；裸 `lsw` 暂提示 P7 实现。
 - `scripts/post-install.ps1`：Windows 内 OpenSSH / QEMU Guest Agent / SMB / `Z:` 检查。
 - 测试替身支持 `LSW_FAKE_QEMU_AUTO_QUIT_MS`，安装流程集成探针 `lsw_install_probe` 与 P4 验收脚本 `scripts/verify-p4.sh`；测试增至 72 例。
+- `DaemonService`（P5）：`lsw start` 拉起 lswd/QEMU 并等待 SSH 2222，`lsw shutdown` 优先 SSH 关机、QMP/信号兜底，清理 `qmp.sock`/`qga.sock` 并让 lswd 退出；start/shutdown 幂等且并发安全。
+- `wait_for_tcp_port`（`util/net`）与 `spawn_detached`（双重 fork）工具。
+- CLI 新增 `lsw start` / `lsw shutdown` 子命令；P5 验收脚本 `scripts/verify-p5.sh`。
 
 ### 变更
 
@@ -54,3 +57,7 @@
 - 修复 OVMF 探测遗漏 Arch `edk2-ovmf` 的 `.4m.fd` 路径问题；依赖提示改为按发行版生成，并合并重复的 OVMF 建议。
 - 修复未安装 Samba 时 QEMU 因 `smb=$HOME` 直接退出、仅报 `QMP Connection refused` 的问题：检测 `smbd` 后才启用 user SMB，缺失时警告并继续；QMP 连接失败时附带 QEMU 日志尾部与退出码。
 - CLI 对多余位置参数（如把 ISO 路径直接跟在命令后）给出中文用法提示并返回退出码 2，不再只显示 CLI11 原始报错。
+- 改善 start/shutdown 可观测性：CLI 输出进度提示，lswd 日志记录收到的命令与关机阶段；关机优雅窗口默认 15s（`LSW_SHUTDOWN_TIMEOUT_MS` 可调），避免长时间无输出。
+- 修复 start 假就绪：QEMU hostfwd 端口被监听不代表 guest sshd 可用；改为必须读取到 `SSH-` banner 才算 Windows OpenSSH 就绪。
+- 修复 QEMU 11 + OVMF 加载 Windows 10 ISO 光驱 EFI 镜像超时导致落到 PXE 的问题：安装/运行默认改用 SeaBIOS（BIOS），安装模式 `-boot order=d` 优先 CD-ROM；新增 `--firmware bios|ovmf`，BIOS 模式不再要求 OVMF。
+- 新增安装磁盘安全护栏：默认拒绝挂载 LSW 数据目录之外已存在的磁盘，需显式 `--allow-existing-disk`，避免覆盖 libvirt 等已有虚拟机。

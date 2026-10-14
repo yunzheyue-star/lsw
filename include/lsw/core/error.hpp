@@ -1,3 +1,11 @@
+/**
+ * @file error.hpp
+ * @brief 统一错误码、Error 与 Result<T>/Status 类型。
+ * @details 文件位置：include/lsw/core/error.hpp（头文件）。
+ *          属于 LSW 核心库；公共行为以 docs/interfaces/core.md 与 agent.md
+ * 为准。
+ */
+
 #pragma once
 
 #include <expected>
@@ -7,8 +15,8 @@
 
 namespace lsw {
 
-/// 统一错误码。CLI 退出码映射见 to_exit_code()，与 docs/interfaces/cli.md
-/// 一致。
+/// @brief 统一错误码。CLI 退出码映射见 to_exit_code()，与
+/// docs/interfaces/cli.md 一致。
 enum class ErrorCode {
     kOk = 0,
     kInternal = 1,
@@ -39,14 +47,15 @@ struct Error {
 
 [[nodiscard]] std::string_view to_string(ErrorCode code) noexcept;
 
-/// 错误码 → CLI 退出码。配置类错误按参数错误（2）处理，其余内部错误归为 1。
+/// @brief 错误码 → CLI 退出码。配置类错误按参数错误（2）处理，其余内部错误归为
+/// 1。
 [[nodiscard]] int to_exit_code(ErrorCode code) noexcept;
 
 template <typename T> using Result = std::expected<T, Error>;
 
 using Status = Result<void>;
 
-/// 构造失败结果：`return fail(ErrorCode::kXxx, "原因");`
+/// @brief 构造失败结果：`return fail(ErrorCode::kXxx, "原因");`
 [[nodiscard]] inline std::unexpected<Error> fail(ErrorCode code,
                                                  std::string message) {
     return std::unexpected(make_error(code, std::move(message)));

@@ -106,13 +106,15 @@ public:
 | --- | --- |
 | 公共 | `-name <vm.name>`、`-smp`、`-m`、`-drive file=$DATA/vm/disk.qcow2,if=virtio,format=qcow2` |
 | 加速 | KVM：`-enable-kvm -machine q35,accel=kvm -cpu host`；TCG：`-machine q35,accel=tcg -cpu max` |
-| 固件 | `-drive if=pflash,format=raw,readonly=on,file=<OVMF_CODE>`、`-drive if=pflash,format=raw,file=$DATA/vm/OVMF_VARS.fd` |
+| 固件 | 默认 SeaBIOS（BIOS）；`--firmware ovmf` / `enable_firmware=true` 时使用 `-drive if=pflash,...` 加载 OVMF |
 | 网络 | `-netdev user,id=net0,hostfwd=tcp:127.0.0.1:2222-:22,hostfwd=tcp:127.0.0.1:1445-:445`；检测到 `smbd` 时追加 `smb=$HOME`（QEMU user SMB 需要 Samba），否则跳过并警告 |
 | QMP / QGA | `-qmp unix:$RUNTIME/lsw/qmp.sock,server=on,wait=off`、`-chardev socket,path=$RUNTIME/lsw/qga.sock,...` |
 | 运行模式 | `-display none` |
 | 安装模式 | Windows ISO + virtio-win ISO（`media=cdrom,readonly=on`）、`-display gtk` |
 
 ## OVMF 固件探测
+
+> 仅当 `enable_firmware=true`（`--firmware ovmf`）时才要求 OVMF；默认 BIOS 模式不检查、不复制固件文件。
 
 `detect_ovmf_code()` / `detect_ovmf_vars_template()` 按以下候选路径探测：
 

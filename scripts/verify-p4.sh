@@ -48,6 +48,7 @@ check_grep "src/cli/main.cpp" "--iso" "CLI 提供 --iso / --virtio-iso"
 # ---------- P4-3 磁盘与 UEFI 变量 ----------
 section "P4-3 · 磁盘与 UEFI 变量"
 check_grep "src/vm/install.cpp" "qcow2" "qemu-img 创建 qcow2"
+check_grep "src/vm/install.cpp" "allow_existing_disk" "安装磁盘外部覆盖保护"
 check_grep "src/vm/install.cpp" "OVMF_VARS" "复制 OVMF_VARS 模板"
 check_grep "tests/unit/test_install.cpp" "幂等" "覆盖重复执行不覆盖测试"
 

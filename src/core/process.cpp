@@ -1,3 +1,11 @@
+/**
+ * @file process.cpp
+ * @brief process 实现（核心库）。
+ * @details 文件位置：src/core/process.cpp（源文件）。
+ *          属于 LSW 核心库；公共行为以 docs/interfaces/core.md 与 agent.md
+ * 为准。
+ */
+
 #include <lsw/core/process.hpp>
 
 #include <cerrno>
@@ -513,5 +521,65 @@ Status ChildProcess::send_signal(int signal) noexcept {
 }
 
 } // namespace core
+
+Status spawn_detached(const std::vector<std::string> &argv,
+                      const core::SpawnOptions &options) {
+    if (argv.empty() || argv.front().empty()) {
+        return fail(ErrorCode::kInvalidArgument, "argv 不能为空");
+    }
+
+    const pid_t first = ::fork();
+    if (first < 0) {
+        return fail(ErrorCode::kProcessError,
+                    std::string("fork 失败: ") + std::strerror(errno));
+    }
+    if (first == 0) {
+        if (::setsid() < 0) {
+            ::_exit(1);
+        }
+        const pid_t second = ::fork();
+        if (second < 0) {
+            ::_exit(1);
+        }
+        if (second > 0) {
+            ::_exit(0);
+        }
+
+        if (options.cwd.has_value() && ::chdir(options.cwd->c_str()) != 0) {
+            ::_exit(126);
+        }
+        int stdout_fd = -1;
+        int stderr_fd = -1;
+        if (auto status = open_redirect(options.stdout_file, stdout_fd);
+            !status) {
+            ::_exit(126);
+        }
+        if (auto status = open_redirect(options.stderr_file, stderr_fd);
+            !status) {
+            ::_exit(126);
+        }
+        (void)::dup2(stdout_fd, STDOUT_FILENO);
+        (void)::dup2(stderr_fd, STDERR_FILENO);
+        ::close(stdout_fd);
+        ::close(stderr_fd);
+
+        std::vector<char *> raw;
+        raw.reserve(argv.size() + 1);
+        for (const auto &arg : argv) {
+            raw.push_back(const_cast<char *>(arg.c_str()));
+        }
+        raw.push_back(nullptr);
+        ::execvp(raw.front(), raw.data());
+        ::_exit(127);
+    }
+
+    int status = 0;
+    while (::waitpid(first, &status, 0) < 0 && errno == EINTR) {
+    }
+    if (WIFEXITED(status) && WEXITSTATUS(status) != 0) {
+        return fail(ErrorCode::kProcessError, "后台进程启动失败");
+    }
+    return {};
+}
 
 } // namespace lsw

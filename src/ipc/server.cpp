@@ -1,3 +1,11 @@
+/**
+ * @file server.cpp
+ * @brief server 实现（IPC 与守护进程通信）。
+ * @details 文件位置：src/ipc/server.cpp（源文件）。
+ *          属于 LSW IPC 与守护进程通信；公共行为以
+ * docs/interfaces/daemon-ipc.md 与 agent.md 为准。
+ */
+
 #include <lsw/ipc/server.hpp>
 
 #include <cerrno>

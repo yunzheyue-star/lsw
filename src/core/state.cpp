@@ -1,3 +1,11 @@
+/**
+ * @file state.cpp
+ * @brief state 实现（核心库）。
+ * @details 文件位置：src/core/state.cpp（源文件）。
+ *          属于 LSW 核心库；公共行为以 docs/interfaces/core.md 与 agent.md
+ * 为准。
+ */
+
 #include <lsw/core/state.hpp>
 
 #include <array>

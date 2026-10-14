@@ -1,3 +1,11 @@
+/**
+ * @file state.hpp
+ * @brief P2 内存态守护进程状态机。
+ * @details 文件位置：include/lsw/core/state.hpp（头文件）。
+ *          属于 LSW 核心库；公共行为以 docs/interfaces/core.md 与 agent.md
+ * 为准。
+ */
+
 #pragma once
 
 #include <chrono>
@@ -11,13 +19,13 @@
 
 namespace lsw::core {
 
-/// lswd 的内存状态机（P2 骨架）。
+/// @brief lswd 的内存状态机（P2 骨架）。
 /// P3 起由 QEMU/QMP 驱动 vm_status 与 mounts；本阶段保证命令幂等与线程安全。
 class DaemonState {
   public:
     explicit DaemonState(std::string version = "0.1.0");
 
-    /// 分发 IPC 命令：status/start/shutdown/mount/unmount/shell/exec。
+    /// @brief 分发 IPC 命令：status/start/shutdown/mount/unmount/shell/exec。
     [[nodiscard]] Result<nlohmann::json>
     handle(const std::string &command,
            const nlohmann::json &args = nlohmann::json::object());

@@ -1,3 +1,11 @@
+/**
+ * @file paths.cpp
+ * @brief paths 实现（工具库）。
+ * @details 文件位置：src/util/paths.cpp（源文件）。
+ *          属于 LSW 工具库；公共行为以 docs/interfaces/core.md 与 agent.md
+ * 为准。
+ */
+
 #include <lsw/util/paths.hpp>
 
 #include <cstdlib>

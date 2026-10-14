@@ -1,3 +1,11 @@
+/**
+ * @file client.hpp
+ * @brief lswd Unix Socket IPC 客户端。
+ * @details 文件位置：include/lsw/ipc/client.hpp（头文件）。
+ *          属于 LSW IPC 与守护进程通信；公共行为以
+ * docs/interfaces/daemon-ipc.md 与 agent.md 为准。
+ */
+
 #pragma once
 
 #include <chrono>
@@ -20,13 +28,13 @@ struct ClientOptions {
     std::chrono::milliseconds retry_delay{50};
 };
 
-/// lswd IPC 客户端：每次调用建立一条 Unix Socket
+/// @brief lswd IPC 客户端：每次调用建立一条 Unix Socket
 /// 连接，发送一行请求、读取一行响应。
 class Client {
   public:
     explicit Client(ClientOptions options);
 
-    /// 调用命令；通信失败或服务端 error 统一转为 Result 错误。
+    /// @brief 调用命令；通信失败或服务端 error 统一转为 Result 错误。
     [[nodiscard]] Result<nlohmann::json>
     call(std::string_view cmd,
          const nlohmann::json &args = nlohmann::json::object());

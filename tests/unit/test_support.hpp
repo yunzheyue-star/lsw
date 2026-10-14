@@ -1,3 +1,11 @@
+/**
+ * @file test_support.hpp
+ * @brief test_support 接口声明（测试与集成探针）。
+ * @details 文件位置：tests/unit/test_support.hpp（单元测试）。
+ *          属于 LSW 测试与集成探针；公共行为以 docs/interfaces 与 agent.md
+ * 为准。
+ */
+
 #pragma once
 
 #include <atomic>
@@ -9,7 +17,7 @@
 
 namespace lsw::test {
 
-/// 测试用临时目录：构造时创建，析构时递归删除。
+/// @brief 测试用临时目录：构造时创建，析构时递归删除。
 class TempDir {
   public:
     explicit TempDir(const std::string &tag) {
@@ -34,7 +42,7 @@ class TempDir {
     std::filesystem::path path_;
 };
 
-/// 在常见安装位置中解析二进制；找不到时原样返回名称。
+/// @brief 在常见安装位置中解析二进制；找不到时原样返回名称。
 [[nodiscard]] inline std::string binary(const std::string &name) {
     for (const char *base : {"/usr/bin/", "/bin/", "/usr/local/bin/"}) {
         const std::filesystem::path candidate = std::string(base) + name;

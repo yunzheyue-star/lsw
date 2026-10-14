@@ -1,3 +1,11 @@
+/**
+ * @file qmp_client.hpp
+ * @brief QEMU QMP 客户端（握手/命令/事件跳过）。
+ * @details 文件位置：include/lsw/vm/qmp_client.hpp（头文件）。
+ *          属于 LSW 虚拟机管理（QEMU/QMP/安装）；公共行为以
+ * docs/interfaces/qmp.md 与 agent.md 为准。
+ */
+
 #pragma once
 
 #include <chrono>
@@ -18,7 +26,7 @@ struct QmpOptions {
     std::chrono::milliseconds io_timeout{5000};
 };
 
-/// QEMU Monitor Protocol 客户端（SKILL-03）：
+/// @brief QEMU Monitor Protocol 客户端（SKILL-03）：
 /// - Unix Domain Socket + 行分隔 JSON
 /// - 连接后自动读取 greeting 并执行 `qmp_capabilities` 握手
 /// - 自动跳过异步事件（"event"），按 id 匹配响应
@@ -33,17 +41,17 @@ class QmpClient {
     QmpClient(QmpClient &&other) noexcept;
     QmpClient &operator=(QmpClient &&other) noexcept;
 
-    /// 连接并在 connect_timeout 内等待 socket 出现、完成握手。
+    /// @brief 连接并在 connect_timeout 内等待 socket 出现、完成握手。
     [[nodiscard]] Result<void> connect();
 
-    /// 执行 QMP 命令，返回 `return` 字段。
+    /// @brief 执行 QMP 命令，返回 `return` 字段。
     [[nodiscard]] Result<nlohmann::json>
     execute(std::string_view command,
             const nlohmann::json &args = nlohmann::json::object());
 
     [[nodiscard]] Result<void> system_powerdown();
 
-    /// true = VM 处于 running 或 paused（仍存活）。
+    /// @brief true = VM 处于 running 或 paused（仍存活）。
     [[nodiscard]] Result<bool> query_status();
 
     void close() noexcept;

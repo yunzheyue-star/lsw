@@ -1,3 +1,11 @@
+/**
+ * @file install.hpp
+ * @brief `lsw --install` 安装流程编排。
+ * @details 文件位置：include/lsw/vm/install.hpp（头文件）。
+ *          属于 LSW 虚拟机管理（QEMU/QMP/安装）；公共行为以
+ * docs/interfaces/qmp.md 与 agent.md 为准。
+ */
+
 #pragma once
 
 #include <cstdint>
@@ -45,10 +53,12 @@ struct InstallOptions {
     bool require_swtpm{false};
     bool interactive{true};
     bool overwrite_disk{false};
+    /// 允许挂载 LSW 数据目录之外已存在的磁盘（默认拒绝，防止覆盖其他虚拟机）。
+    bool allow_existing_disk{false};
     QemuVmOptions qemu_options;
 };
 
-/// `lsw --install` 安装流程（P4）：
+/// @brief `lsw --install` 安装流程（P4）：
 /// 依赖检查 → ISO 校验/交互输入 → 磁盘/UEFI 变量准备 → GUI 安装 → 安装后指引。
 class Installer {
   public:

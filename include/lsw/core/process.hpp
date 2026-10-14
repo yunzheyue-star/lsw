@@ -1,3 +1,11 @@
+/**
+ * @file process.hpp
+ * @brief 同步进程执行与后台子进程 RAII。
+ * @details 文件位置：include/lsw/core/process.hpp（头文件）。
+ *          属于 LSW 核心库；公共行为以 docs/interfaces/core.md 与 agent.md
+ * 为准。
+ */
+
 #pragma once
 
 #include <chrono>
@@ -22,7 +30,7 @@ struct ProcessResult {
     std::string stderr_data;
 };
 
-/// 参数化执行外部程序（fork + execvp，不经过 shell，无注入风险）。
+/// @brief 参数化执行外部程序（fork + execvp，不经过 shell，无注入风险）。
 /// - 始终捕获 stdout/stderr
 /// - 超时返回 kProcessTimeout，并回收子进程
 /// - 无法执行（不存在、无权限、chdir 失败）返回 kProcessError
@@ -38,7 +46,7 @@ struct SpawnOptions {
     std::optional<std::filesystem::path> stderr_file; ///< 空 = /dev/null
 };
 
-/// 后台子进程 RAII：析构时若仍存活则 SIGKILL 并回收，避免僵尸。
+/// @brief 后台子进程 RAII：析构时若仍存活则 SIGKILL 并回收，避免僵尸。
 class ChildProcess {
   public:
     ChildProcess() = default;
@@ -59,9 +67,9 @@ class ChildProcess {
         return exit_code_;
     }
 
-    /// 阻塞等待退出，返回退出码（信号终止为 128+signal）。
+    /// @brief 阻塞等待退出，返回退出码（信号终止为 128+signal）。
     [[nodiscard]] Result<int> wait();
-    /// 限时等待；超时返回 kProcessTimeout，进程仍存活。
+    /// @brief 限时等待；超时返回 kProcessTimeout，进程仍存活。
     [[nodiscard]] Result<int> wait_for(std::chrono::milliseconds timeout);
     [[nodiscard]] Status send_signal(int signal) noexcept;
     [[nodiscard]] Status terminate() noexcept { return send_signal(SIGTERM); }
@@ -74,5 +82,10 @@ class ChildProcess {
 };
 
 } // namespace core
+
+/// @brief 以“脱离终端”的方式启动后台进程（双重 fork + setsid），用于 CLI 拉起
+/// lswd。 父进程只等待中间子进程退出，不持有孙进程句柄。
+[[nodiscard]] Status spawn_detached(const std::vector<std::string> &argv,
+                                    const core::SpawnOptions &options = {});
 
 } // namespace lsw

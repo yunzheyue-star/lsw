@@ -1,3 +1,11 @@
+/**
+ * @file path_map.cpp
+ * @brief path_map 实现（核心库）。
+ * @details 文件位置：src/core/path_map.cpp（源文件）。
+ *          属于 LSW 核心库；公共行为以 docs/interfaces/core.md 与 agent.md
+ * 为准。
+ */
+
 #include <lsw/core/path_map.hpp>
 
 #include <system_error>

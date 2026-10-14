@@ -1,3 +1,11 @@
+/**
+ * @file protocol.hpp
+ * @brief lswd JSON Lines 请求/响应与错误码映射。
+ * @details 文件位置：include/lsw/ipc/protocol.hpp（头文件）。
+ *          属于 LSW IPC 与守护进程通信；公共行为以
+ * docs/interfaces/daemon-ipc.md 与 agent.md 为准。
+ */
+
 #pragma once
 
 #include <string>
@@ -9,7 +17,7 @@
 
 namespace lsw::ipc {
 
-/// IPC 错误码字符串（docs/interfaces/daemon-ipc.md）
+/// @brief IPC 错误码字符串（docs/interfaces/daemon-ipc.md）
 inline constexpr std::string_view kBadRequest = "BAD_REQUEST";
 inline constexpr std::string_view kUnknownCommand = "UNKNOWN_COMMAND";
 inline constexpr std::string_view kNotImplemented = "NOT_IMPLEMENTED";
@@ -19,7 +27,7 @@ inline constexpr std::string_view kMountFailed = "MOUNT_FAILED";
 inline constexpr std::string_view kQmpError = "QMP_ERROR";
 inline constexpr std::string_view kInternal = "INTERNAL";
 
-/// 请求：{ "id": "...", "cmd": "...", "args": { ... } }
+/// @brief 请求：{ "id": "...", "cmd": "...", "args": { ... } }
 struct Request {
     std::string id;
     std::string cmd;
@@ -28,7 +36,7 @@ struct Request {
     [[nodiscard]] nlohmann::json to_json() const;
 };
 
-/// 响应：成功 { "id", "ok": true, "data": {...} }
+/// @brief 响应：成功 { "id", "ok": true, "data": {...} }
 ///       失败 { "id", "ok": false, "error": { "code", "message" } }
 struct Response {
     std::string id;
@@ -45,15 +53,15 @@ struct Response {
                                           std::string message);
 };
 
-/// 解析一行 JSON（允许行尾 \r\n）；结构非法返回 kProtocolError。
+/// @brief 解析一行 JSON（允许行尾 \r\n）；结构非法返回 kProtocolError。
 [[nodiscard]] Result<Request> parse_request(std::string_view line);
 [[nodiscard]] Result<Response> parse_response(std::string_view line);
 
-/// 编码为 JSON Lines（含结尾 '\n'）。
+/// @brief 编码为 JSON Lines（含结尾 '\n'）。
 [[nodiscard]] std::string encode_line(const Request &request);
 [[nodiscard]] std::string encode_line(const Response &response);
 
-/// ErrorCode ↔ IPC error.code 映射。
+/// @brief ErrorCode ↔ IPC error.code 映射。
 [[nodiscard]] std::string to_ipc_error_code(ErrorCode code) noexcept;
 [[nodiscard]] ErrorCode from_ipc_error_code(std::string_view code) noexcept;
 

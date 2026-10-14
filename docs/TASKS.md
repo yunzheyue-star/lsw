@@ -21,12 +21,12 @@
 | P2 | IPC 与 `lswd` 骨架 | 10% | [x] |
 | P3 | QEMU / QMP | 15% | [x] |
 | P4 | `lsw --install` | 10% | [x] |
-| P5 | `lsw start` / `lsw shutdown` | 10% | [ ] |
+| P5 | `lsw start` / `lsw shutdown` | 10% | [x] |
 | P6 | 文件系统（Z: / CIFS） | 12% | [ ] |
 | P7 | `lsw shell` 桥接 | 8% | [ ] |
 | P8 | `lsw test.exe` 执行 | 5% | [ ] |
 | P9 | 系统测试与 1.0 收口 | 10% | [ ] |
-| **合计** | | **100%** | 当前 **55%** |
+| **合计** | | **100%** | 当前 **65%** |
 
 ## 权重分布
 
@@ -158,14 +158,22 @@ bash scripts/verify-p4.sh
 
 预期：全部 C++ 文件通过 `.clang-format` 检查；`ctest` 全部通过（72/72）；`lsw --version` / `lsw --help` 正常；依赖缺失时退出码 3 并给出修复建议；假 QEMU 安装探针完成 `Installer::run()`，创建 `disk.qcow2`、复制 `OVMF_VARS.fd` 并输出安装后指引。手工核对：`docs/interfaces/cli.md`、`scripts/post-install.ps1`、`tests/unit/test_install.cpp`。
 
-## P5 · `lsw start` / `lsw shutdown`（10%，进行中）
+## P5 · `lsw start` / `lsw shutdown`（10%，已完成）
 
 | 编号 | 任务 | 交付物 / 验收标准 | 依赖 | 权重 | 状态 |
 | --- | --- | --- | --- | ---: | :---: |
-| P5-1 | `start` 编排 | 拉起 `lswd` → QMP 启动 VM → 轮询 2222（超时/退避）→ 失败映射 6/8 | P3-3、P4 | 3% | [ ] |
-| P5-2 | 幂等与并发 | 已启动直接返回成功；并发 `start` 串行化；测试覆盖 | P5-1 | 2% | [ ] |
-| P5-3 | `shutdown` | SSH 关机优先，失败走 QMP `system_powerdown`，等待 QEMU 退出 | P5-1 | 3% | [ ] |
-| P5-4 | 清理 | 卸载 `/mnt/Windows/{C,D}`、清理 `$RUNTIME/lsw/*`、停止 daemon；重复调用幂等 | P5-3 | 2% | [ ] |
+| P5-1 | `start` 编排 | 拉起 `lswd` → QMP 启动 VM → 轮询 2222（超时/退避）→ 失败映射 6/8 | P3-3、P4 | 3% | [x] |
+| P5-2 | 幂等与并发 | 已启动直接返回成功；并发 `start` 串行化；测试覆盖 | P5-1 | 2% | [x] |
+| P5-3 | `shutdown` | SSH 关机优先，失败走 QMP `system_powerdown`，等待 QEMU 退出 | P5-1 | 3% | [x] |
+| P5-4 | 清理 | 卸载 `/mnt/Windows/{C,D}`、清理 `$RUNTIME/lsw/*`、停止 daemon；重复调用幂等 | P5-3 | 2% | [x] |
+
+### P5 验收方式（一键）
+
+```bash
+bash scripts/verify-p5.sh
+```
+
+预期：`ctest` 全部通过（83/83）；假 QEMU 下 `lswd + lsw start` 返回 running、重复 start 幂等、`lsw shutdown` 后 lswd 退出并清理 socket/PID；`clang-format` 与 Doxygen 文件头检查通过。手工核对：`docs/interfaces/cli.md`、`docs/interfaces/daemon-ipc.md`、`tests/unit/test_daemon_service.cpp`。
 
 ## P6 · 文件系统（Z: / CIFS）（12%）
 

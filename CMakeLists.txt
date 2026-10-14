@@ -57,16 +57,21 @@ add_executable(lsw ${LSW_CLI_SOURCES})
 target_link_libraries(lsw PRIVATE lsw_core)
 target_compile_definitions(lsw PRIVATE LSW_VERSION="${PROJECT_VERSION}")
 
-# ===== lswd 守护进程（src/daemon）=====
+# ===== lsw_daemon：守护进程服务库（供 lswd 与测试复用）=====
 file(GLOB_RECURSE LSW_DAEMON_SOURCES CONFIGURE_DEPENDS
     "${CMAKE_CURRENT_SOURCE_DIR}/src/daemon/*.cpp"
 )
+list(FILTER LSW_DAEMON_SOURCES EXCLUDE REGEX "/lswd\\.cpp$")
 if(NOT LSW_DAEMON_SOURCES)
-    message(FATAL_ERROR "src/daemon 下没有找到任何 C++ 源文件")
+    message(FATAL_ERROR "src/daemon 下没有服务实现源文件")
 endif()
 
-add_executable(lswd ${LSW_DAEMON_SOURCES})
-target_link_libraries(lswd PRIVATE lsw_core)
+add_library(lsw_daemon STATIC ${LSW_DAEMON_SOURCES})
+target_link_libraries(lsw_daemon PUBLIC lsw_core)
+
+# ===== lswd 守护进程入口 =====
+add_executable(lswd "${CMAKE_CURRENT_SOURCE_DIR}/src/daemon/lswd.cpp")
+target_link_libraries(lswd PRIVATE lsw_daemon)
 target_compile_definitions(lswd PRIVATE LSW_VERSION="${PROJECT_VERSION}")
 
 # ===== 测试 =====

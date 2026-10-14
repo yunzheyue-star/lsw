@@ -1,3 +1,11 @@
+/**
+ * @file qemu.cpp
+ * @brief qemu 实现（虚拟机管理（QEMU/QMP/安装））。
+ * @details 文件位置：src/vm/qemu.cpp（源文件）。
+ *          属于 LSW 虚拟机管理（QEMU/QMP/安装）；公共行为以
+ * docs/interfaces/qmp.md 与 agent.md 为准。
+ */
+
 #include <lsw/vm/qemu.hpp>
 
 #include <cstdlib>
@@ -237,6 +245,9 @@ Result<std::vector<std::string>> build_qemu_args(const Config &config,
     args.push_back("file=" + disk.string() + ",if=virtio,format=qcow2");
 
     if (install_mode) {
+        // BIOS/SeaBIOS：显式优先从 CD-ROM 启动，避免落到 PXE。
+        args.push_back("-boot");
+        args.push_back("order=d");
         if (config.vm.windows_iso.empty()) {
             return fail(
                 ErrorCode::kConfigInvalid,
@@ -253,6 +264,10 @@ Result<std::vector<std::string>> build_qemu_args(const Config &config,
         args.push_back("-display");
         args.push_back("gtk");
     } else {
+        if (!options.enable_firmware) {
+            args.push_back("-boot");
+            args.push_back("order=c");
+        }
         args.push_back("-display");
         args.push_back("none");
     }

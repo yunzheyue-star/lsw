@@ -1,3 +1,11 @@
+/**
+ * @file qemu.hpp
+ * @brief QEMU 启动参数、生命周期与状态查询。
+ * @details 文件位置：include/lsw/vm/qemu.hpp（头文件）。
+ *          属于 LSW 虚拟机管理（QEMU/QMP/安装）；公共行为以
+ * docs/interfaces/qmp.md 与 agent.md 为准。
+ */
+
 #pragma once
 
 #include <chrono>
@@ -27,7 +35,8 @@ struct QemuVmOptions {
         disk_image; ///< 空 = config.vm.disk 或 $DATA/vm/disk.qcow2
     std::filesystem::path home_dir; ///< 空 = 当前 $HOME（QEMU user SMB）
     bool enable_kvm{true};          ///< false → accel=tcg（无 KVM 环境/测试）
-    bool enable_firmware{true};     ///< false → 不挂 pflash（测试替身）
+    bool enable_firmware{
+        false}; ///< false = SeaBIOS（BIOS，Win10 推荐）；true = OVMF/UEFI
     bool enable_swtpm{false};
     std::filesystem::path swtpm_binary{"swtpm"};
     std::string machine{"q35"};
@@ -35,33 +44,34 @@ struct QemuVmOptions {
     std::chrono::milliseconds qmp_connect_timeout{5000};
 };
 
-/// 在 PATH（或给定路径）中查找可执行文件；找不到返回空路径。
+/// @brief 在 PATH（或给定路径）中查找可执行文件；找不到返回空路径。
 [[nodiscard]] std::filesystem::path find_executable(std::string_view name);
 
-/// OVMF CODE / VARS 的候选路径（覆盖 Debian/Ubuntu、Fedora、Arch 等布局）。
+/// @brief OVMF CODE / VARS 的候选路径（覆盖 Debian/Ubuntu、Fedora、Arch
+/// 等布局）。
 [[nodiscard]] std::vector<std::filesystem::path> ovmf_code_candidates();
 [[nodiscard]] std::vector<std::filesystem::path> ovmf_vars_candidates();
 
-/// 探测 OVMF CODE 固件常见位置；找不到返回 nullopt。
+/// @brief 探测 OVMF CODE 固件常见位置；找不到返回 nullopt。
 [[nodiscard]] std::optional<std::filesystem::path> detect_ovmf_code();
 
-/// 探测 OVMF VARS 模板常见位置；找不到返回 nullopt。
+/// @brief 探测 OVMF VARS 模板常见位置；找不到返回 nullopt。
 [[nodiscard]] std::optional<std::filesystem::path> detect_ovmf_vars_template();
 
-/// swtpm 是否可用（binary 为空时按 PATH 查找）。
+/// @brief swtpm 是否可用（binary 为空时按 PATH 查找）。
 [[nodiscard]] bool
 swtpm_available(const std::filesystem::path &binary = "swtpm");
 
-/// 构造 swtpm 进程参数（P3-5）；不修改文件系统。
+/// @brief 构造 swtpm 进程参数（P3-5）；不修改文件系统。
 [[nodiscard]] Result<std::vector<std::string>>
 build_swtpm_args(const QemuVmOptions &options, const XdgPaths &paths);
 
-/// 构造完整 QEMU 参数；供 QemuVm 与单元测试复用。
+/// @brief 构造完整 QEMU 参数；供 QemuVm 与单元测试复用。
 [[nodiscard]] Result<std::vector<std::string>>
 build_qemu_args(const Config &config, const XdgPaths &paths,
                 const QemuVmOptions &options, bool install_mode);
 
-/// QEMU 生命周期（SKILL-02）：启动、QMP 状态、优雅关闭。
+/// @brief QEMU 生命周期（SKILL-02）：启动、QMP 状态、优雅关闭。
 class QemuVm {
   public:
     QemuVm(Config config, XdgPaths paths, QemuVmOptions options = {});
@@ -69,12 +79,12 @@ class QemuVm {
     QemuVm(const QemuVm &) = delete;
     QemuVm &operator=(const QemuVm &) = delete;
 
-    /// 运行模式：-display none，后台进程，QMP 握手完成后返回。
+    /// @brief 运行模式：-display none，后台进程，QMP 握手完成后返回。
     [[nodiscard]] Result<void> start();
-    /// 安装模式：-display gtk + Windows ISO / virtio ISO。
+    /// @brief 安装模式：-display gtk + Windows ISO / virtio ISO。
     [[nodiscard]] Result<void> start_install();
     [[nodiscard]] Result<VmStatus> status();
-    /// 优先 QMP system_powerdown；超时后 SIGTERM → SIGKILL 兜底。
+    /// @brief 优先 QMP system_powerdown；超时后 SIGTERM → SIGKILL 兜底。
     [[nodiscard]] Result<void> shutdown();
     [[nodiscard]] Result<int> wait();
     [[nodiscard]] Status kill();

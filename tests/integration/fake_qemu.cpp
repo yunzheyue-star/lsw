@@ -1,3 +1,11 @@
+/**
+ * @file fake_qemu.cpp
+ * @brief fake_qemu 实现（测试与集成探针）。
+ * @details 文件位置：tests/integration/fake_qemu.cpp（集成探针/测试替身）。
+ *          属于 LSW 测试与集成探针；公共行为以 docs/interfaces 与 agent.md
+ * 为准。
+ */
+
 // 假 QEMU 测试替身：只实现 QMP 握手/状态/电源命令，用于无 KVM/无固件环境。
 // 用法: lsw_fake_qemu <QEMU 参数...>（必须包含 -qmp
 // unix:<path>,server=on,wait=off）

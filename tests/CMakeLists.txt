@@ -21,7 +21,7 @@ if(NOT LSW_CORE_TEST_SOURCES)
 endif()
 
 add_executable(lsw_core_tests ${LSW_CORE_TEST_SOURCES})
-target_link_libraries(lsw_core_tests PRIVATE lsw_core Catch2::Catch2WithMain)
+target_link_libraries(lsw_core_tests PRIVATE lsw_core lsw_daemon Catch2::Catch2WithMain)
 target_include_directories(lsw_core_tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/unit")
 
 include(Catch)

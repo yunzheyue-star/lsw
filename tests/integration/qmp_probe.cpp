@@ -1,3 +1,11 @@
+/**
+ * @file qmp_probe.cpp
+ * @brief qmp_probe 实现（测试与集成探针）。
+ * @details 文件位置：tests/integration/qmp_probe.cpp（集成探针/测试替身）。
+ *          属于 LSW 测试与集成探针；公共行为以 docs/interfaces 与 agent.md
+ * 为准。
+ */
+
 // QMP 探针：供 scripts/verify-p3.sh 对真实 QEMU 做冒烟测试。
 // 用法: lsw_qmp_probe <qmp-socket> [command] [json-args]
 #include <iostream>

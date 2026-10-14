@@ -1,3 +1,11 @@
+/**
+ * @file test_qemu_args.cpp
+ * @brief test_qemu_args 实现（测试与集成探针）。
+ * @details 文件位置：tests/unit/test_qemu_args.cpp（单元测试）。
+ *          属于 LSW 测试与集成探针；公共行为以 docs/interfaces 与 agent.md
+ * 为准。
+ */
+
 #include <catch2/catch_test_macros.hpp>
 
 #include <algorithm>
@@ -79,6 +87,7 @@ TEST_CASE("运行模式参数符合 SKILL-02", "[vm][qemu]") {
     CHECK(has_pair(*args, "-smp", "4"));
     CHECK(has_pair(*args, "-m", "8192"));
     CHECK(has_pair(*args, "-cpu", "max"));
+    CHECK(has_pair(*args, "-boot", "order=c"));
     CHECK(has_arg_containing(*args, "hostfwd=tcp:127.0.0.1:2222-:22"));
     CHECK(has_arg_containing(*args, "hostfwd=tcp:127.0.0.1:1445-:445"));
     if (lsw::vm::find_executable("smbd").empty()) {
@@ -101,6 +110,7 @@ TEST_CASE("安装模式参数启用 gtk 与双 ISO", "[vm][qemu]") {
     const auto args = build_qemu_args(config, paths, test_options(temp), true);
     REQUIRE(args.has_value());
     CHECK(has_pair(*args, "-display", "gtk"));
+    CHECK(has_pair(*args, "-boot", "order=d"));
     CHECK(has_arg_containing(*args, "win11.iso,media=cdrom,readonly=on"));
     CHECK(has_arg_containing(*args, "virtio-win.iso,media=cdrom,readonly=on"));
 }

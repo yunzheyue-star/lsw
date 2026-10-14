@@ -12,7 +12,9 @@ if ($null -ne $sshd) {
         Write-Host "     请执行：Start-Service sshd; Set-Service -Name sshd -StartupType Automatic"
     }
 } else {
-    Write-Host "[TODO] 未检测到 sshd：设置 → 系统 → 可选功能 → 添加 OpenSSH 服务器" -ForegroundColor Yellow
+    Write-Host "[TODO] 未检测到 sshd，请用管理员 PowerShell 执行：" -ForegroundColor Yellow
+    Write-Host "       Add-WindowsCapability -Online -Name OpenSSH.Server~~~~0.0.1.0"
+    Write-Host "       Start-Service sshd; Set-Service -Name sshd -StartupType Automatic"
 }
 
 # 2. QEMU Guest Agent

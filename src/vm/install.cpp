@@ -1,3 +1,11 @@
+/**
+ * @file install.cpp
+ * @brief install 实现（虚拟机管理（QEMU/QMP/安装））。
+ * @details 文件位置：src/vm/install.cpp（源文件）。
+ *          属于 LSW 虚拟机管理（QEMU/QMP/安装）；公共行为以
+ * docs/interfaces/qmp.md 与 agent.md 为准。
+ */
+
 #include <lsw/vm/install.hpp>
 
 #include <algorithm>
@@ -220,28 +228,30 @@ Result<DependencyReport> Installer::check_dependencies() const {
                  "$USER 后重新登录");
     }
 
-    report.ovmf_code = options_.ovmf_code;
-    if (report.ovmf_code.empty()) {
-        const auto detected = detect_ovmf_code();
-        if (detected) {
-            report.ovmf_code = *detected;
+    if (options_.qemu_options.enable_firmware) {
+        report.ovmf_code = options_.ovmf_code;
+        if (report.ovmf_code.empty()) {
+            const auto detected = detect_ovmf_code();
+            if (detected) {
+                report.ovmf_code = *detected;
+            }
         }
-    }
-    if (!readable_file(report.ovmf_code)) {
-        report.missing.push_back("OVMF_CODE.fd");
-        add_hint(ovmf_install_hint(distro));
-    }
+        if (!readable_file(report.ovmf_code)) {
+            report.missing.push_back("OVMF_CODE.fd");
+            add_hint(ovmf_install_hint(distro));
+        }
 
-    report.ovmf_vars_template = options_.ovmf_vars_template;
-    if (report.ovmf_vars_template.empty()) {
-        const auto detected = detect_ovmf_vars_template();
-        if (detected) {
-            report.ovmf_vars_template = *detected;
+        report.ovmf_vars_template = options_.ovmf_vars_template;
+        if (report.ovmf_vars_template.empty()) {
+            const auto detected = detect_ovmf_vars_template();
+            if (detected) {
+                report.ovmf_vars_template = *detected;
+            }
         }
-    }
-    if (!readable_file(report.ovmf_vars_template)) {
-        report.missing.push_back("OVMF_VARS.fd 模板");
-        add_hint(ovmf_install_hint(distro));
+        if (!readable_file(report.ovmf_vars_template)) {
+            report.missing.push_back("OVMF_VARS.fd 模板");
+            add_hint(ovmf_install_hint(distro));
+        }
     }
 
     if (options_.require_swtpm) {
@@ -310,7 +320,19 @@ Status Installer::prepare_storage() {
     }
 
     if (std::filesystem::exists(*disk) && !options_.overwrite_disk) {
-        // 幂等：已存在的系统盘不覆盖。
+        // 安全护栏：LSW 数据目录之外的已有磁盘默认拒绝，防止覆盖其他虚拟机。
+        const auto relative = disk->lexically_relative(paths_.data_dir);
+        const bool under_data_dir =
+            !relative.empty() && *relative.begin() != "..";
+        if (!under_data_dir && !options_.allow_existing_disk) {
+            return fail(
+                ErrorCode::kInvalidArgument,
+                "拒绝把安装模式挂到已有的外部磁盘（防止覆盖其他虚拟机）：" +
+                    disk->string() +
+                    "。如确认要复用该磁盘，请显式添加 --allow-existing-disk；"
+                    "更推荐为 LSW 指定一个新磁盘路径。");
+        }
+        // 幂等：已存在的 LSW 系统盘不覆盖。
     } else {
         if (options_.overwrite_disk && std::filesystem::exists(*disk)) {
             std::filesystem::remove(*disk, error);
@@ -334,6 +356,10 @@ Status Installer::prepare_storage() {
             return fail(ErrorCode::kQemuError,
                         "qemu-img 创建磁盘失败: " + created->stderr_data);
         }
+    }
+
+    if (!options_.qemu_options.enable_firmware) {
+        return {};
     }
 
     const auto vars = paths_.data_dir / "vm" / "OVMF_VARS.fd";
@@ -394,11 +420,13 @@ Result<InstallResult> Installer::run() {
 
     QemuVmOptions qemu_options = options_.qemu_options;
     qemu_options.disk_image = *disk;
-    if (qemu_options.ovmf_code.empty()) {
-        qemu_options.ovmf_code = report->ovmf_code;
-    }
-    if (qemu_options.ovmf_vars.empty()) {
-        qemu_options.ovmf_vars = paths_.data_dir / "vm" / "OVMF_VARS.fd";
+    if (qemu_options.enable_firmware) {
+        if (qemu_options.ovmf_code.empty()) {
+            qemu_options.ovmf_code = report->ovmf_code;
+        }
+        if (qemu_options.ovmf_vars.empty()) {
+            qemu_options.ovmf_vars = paths_.data_dir / "vm" / "OVMF_VARS.fd";
+        }
     }
 
     Config config = config_;

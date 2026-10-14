@@ -1,3 +1,11 @@
+/**
+ * @file qmp_client.cpp
+ * @brief qmp_client 实现（虚拟机管理（QEMU/QMP/安装））。
+ * @details 文件位置：src/vm/qmp_client.cpp（源文件）。
+ *          属于 LSW 虚拟机管理（QEMU/QMP/安装）；公共行为以
+ * docs/interfaces/qmp.md 与 agent.md 为准。
+ */
+
 #include <lsw/vm/qmp_client.hpp>
 
 #include <cerrno>

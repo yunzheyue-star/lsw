@@ -28,6 +28,8 @@
 | `--iso <path>` | 用户自备的合法 Windows ISO |
 | `--virtio-iso <path>` | virtio-win ISO |
 | `--disk <path>` | qcow2 路径，默认 `~/.local/share/lsw/vm/disk.qcow2` |
+| `--firmware <bios\|ovmf>` | 安装固件，默认 `bios`（SeaBIOS）；`ovmf` 为 UEFI。Windows 10 建议 BIOS |
+| `--allow-existing-disk` | 允许安装模式挂载 LSW 数据目录之外已存在的磁盘；**默认拒绝**，防止覆盖 libvirt 等其他虚拟机的磁盘 |
 
 > 不支持位置参数：ISO / 磁盘路径必须用 `--iso`、`--virtio-iso`、`--disk` 指定；只运行 `lsw --install`（不带任何路径）时，会在交互终端中提示输入。
 
@@ -43,9 +45,12 @@
 
 ### `lsw start`
 
-启动虚拟机服务：拉起 `lswd` → QMP 启动 VM → 等待 `127.0.0.1:2222` 可用 → 挂载 `C$`/`D$` → 确保 `Z:` 映射。
+启动流程（P5 已实现）：`lswd` 未运行时自动拉起 → 通过 IPC 调用 `start` → `lswd` 内 `QemuVm` 以运行模式启动 QEMU（`-display none`）→ 等待 `127.0.0.1:2222` 就绪（默认 120s）→ 返回 `{pid, vm_status:"running"}`。
 
-幂等：已启动时直接返回成功。
+- 幂等：已在运行且端口就绪时直接成功；并发 `start` 由互斥锁串行化。
+- 退出码：`0`、`6`（等待 SSH 超时）、`8`（QEMU 错误）。
+- 启动期间会输出等待提示；默认 120s 内必须读到 Windows SSH banner（`LSW_SSH_READY_TIMEOUT_MS` 可调），仅 hostfwd 端口被监听不算就绪，未装/未启动 sshd 会超时返回 6。
+- 说明：CIFS 挂载与 `Z:` 映射属于 P6，SSH 交互式 shell 属于 P7。
 
 ### `lsw` / `lsw shell`
 
@@ -75,10 +80,15 @@
 
 ### `lsw shutdown`
 
-优先通过 SSH 执行 Windows 关机；失败时通过 QMP 发送 `system_powerdown`；等待 QEMU 退出；卸载 `/mnt/Windows/C`、`/mnt/Windows/D`；停止 `lswd`。
+关闭流程（P5 已实现）：优先 `ssh ... shutdown /s /t 0`；失败时 `QemuVm::shutdown()` 走 QMP `system_powerdown` → SIGTERM → SIGKILL；清理 `qmp.sock`/`qga.sock` 并停止 `lswd`。
+
+- 幂等：`lswd` 未运行或 QEMU 已停止时返回成功。
+- 默认给 guest 15 秒优雅关机窗口（`LSW_SHUTDOWN_TIMEOUT_MS` 可调），超时后 SIGTERM → SIGKILL。
+- 挂载点卸载在 P6 接入 CIFS 后生效。
 
 ## 变更记录
 
 | 版本 | 变更 |
 | --- | --- |
 | 未发布 | 补全全局退出码、`lsw shell` 目录映射规则与 SSH 用户名说明 |
+| 未发布 | P5 实现 `lsw start` / `lsw shutdown` 编排：守护进程拉起、等待 SSH、SSH/QMP 关机与资源清理 |

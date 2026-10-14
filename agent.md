@@ -199,6 +199,8 @@ ctest --test-dir build --output-on-failure
 - 路径处理使用 `std::filesystem`。
 - 所有 C++ 代码必须通过仓库根目录 `.clang-format` 检查；提交前执行
   `clang-format -i`（对 `include/`、`src/`、`tests/` 下的 `.hpp` / `.cpp`）。
+- 每个 C++ 文件必须以 Doxygen 文件头开头（`@file` / `@brief` / `@details`）；
+  公共类、结构体、枚举与函数使用 `///` 或 `/** ... */` 写 Doxygen 注释。
 
 ## 任务执行清单
 

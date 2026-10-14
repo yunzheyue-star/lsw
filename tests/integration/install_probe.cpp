@@ -1,3 +1,11 @@
+/**
+ * @file install_probe.cpp
+ * @brief install_probe 实现（测试与集成探针）。
+ * @details 文件位置：tests/integration/install_probe.cpp（集成探针/测试替身）。
+ *          属于 LSW 测试与集成探针；公共行为以 docs/interfaces 与 agent.md
+ * 为准。
+ */
+
 // 安装流程集成探针：使用假 QEMU 走通 Installer::run()。
 // 用法: lsw_install_probe <fake-qemu> <workdir>
 #include <cstdlib>

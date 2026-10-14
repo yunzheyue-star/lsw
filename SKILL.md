@@ -86,6 +86,8 @@ qemu-system-x86_64 \
 
 运行模式将 `-display gtk` 改为 `-display none`，由 `lswd` 管理进程。
 
+> 固件策略（P4 实测）：Windows 10 默认使用 SeaBIOS（BIOS）并 `-boot order=d` 优先光驱，兼容性最好；`lsw --install --firmware ovmf` 可切换 OVMF/UEFI，供 Windows 11 等场景使用。
+
 ### 文档更新
 
 - `docs/interfaces/qmp.md`

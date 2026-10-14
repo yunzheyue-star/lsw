@@ -1,3 +1,11 @@
+/**
+ * @file test_qemu_vm.cpp
+ * @brief test_qemu_vm 实现（测试与集成探针）。
+ * @details 文件位置：tests/unit/test_qemu_vm.cpp（单元测试）。
+ *          属于 LSW 测试与集成探针；公共行为以 docs/interfaces 与 agent.md
+ * 为准。
+ */
+
 #include <catch2/catch_test_macros.hpp>
 
 #include <chrono>

@@ -1,3 +1,11 @@
+/**
+ * @file test_install.cpp
+ * @brief test_install 实现（测试与集成探针）。
+ * @details 文件位置：tests/unit/test_install.cpp（单元测试）。
+ *          属于 LSW 测试与集成探针；公共行为以 docs/interfaces 与 agent.md
+ * 为准。
+ */
+
 #include <catch2/catch_test_macros.hpp>
 
 #include <algorithm>
@@ -184,7 +192,9 @@ TEST_CASE("创建磁盘与 UEFI 变量且幂等不覆盖", "[install]") {
         return;
     }
     Fixture fixture;
-    Installer installer(fixture.config, fixture.paths, fixture.options());
+    InstallOptions options = fixture.options();
+    options.allow_existing_disk = true;
+    Installer installer(fixture.config, fixture.paths, options);
     REQUIRE(installer.prepare_storage().has_value());
 
     const auto disk = fixture.config.vm.disk;
@@ -206,6 +216,50 @@ TEST_CASE("创建磁盘与 UEFI 变量且幂等不覆盖", "[install]") {
     const std::string content((std::istreambuf_iterator<char>(in)),
                               std::istreambuf_iterator<char>());
     CHECK(content == "user-modified");
+}
+
+TEST_CASE("默认拒绝把安装模式挂到外部已有磁盘", "[install]") {
+    Fixture fixture;
+    const auto external = fixture.temp.path() / "external-win10.qcow2";
+    {
+        std::ofstream out(external);
+        out << "pretend-existing-vm-disk";
+    }
+    InstallOptions options = fixture.options();
+    options.disk_image = external;
+    options.allow_existing_disk = false;
+    Installer rejecting(fixture.config, fixture.paths, options);
+    const auto rejected = rejecting.prepare_storage();
+    REQUIRE_FALSE(rejected.has_value());
+    CHECK(rejected.error().code == ErrorCode::kInvalidArgument);
+
+    options.allow_existing_disk = true;
+    Installer allowed(fixture.config, fixture.paths, options);
+    REQUIRE(allowed.prepare_storage().has_value());
+    std::ifstream input(external);
+    const std::string content((std::istreambuf_iterator<char>(input)),
+                              std::istreambuf_iterator<char>());
+    CHECK(content == "pretend-existing-vm-disk");
+}
+
+TEST_CASE("BIOS 模式不要求 OVMF 且可完成安装", "[install]") {
+    Fixture fixture;
+    InstallOptions options = fixture.options();
+    options.qemu_options.enable_firmware = false;
+    options.ovmf_code = fixture.temp.path() / "missing_code.fd";
+    options.ovmf_vars_template = fixture.temp.path() / "missing_vars.fd";
+
+    Installer installer(fixture.config, fixture.paths, options);
+    const auto report = installer.check_dependencies();
+    REQUIRE(report.has_value());
+    CHECK(report->ok());
+
+    ScopedEnv auto_quit("LSW_FAKE_QEMU_AUTO_QUIT_MS", "400");
+    const auto result = installer.run();
+    REQUIRE(result.has_value());
+    CHECK(std::filesystem::exists(fixture.config.vm.disk));
+    CHECK_FALSE(std::filesystem::exists(fixture.paths.data_dir / "vm" /
+                                        "OVMF_VARS.fd"));
 }
 
 TEST_CASE("完整安装流程（假 QEMU 自动退出）", "[install]") {
