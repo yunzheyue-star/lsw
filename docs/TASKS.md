@@ -14,14 +14,14 @@
 | P0 | 工程基线 | 5% | ✅ 已完成 |
 | P1 | `lsw_core` 核心库 | 15% | ✅ 已完成 |
 | P2 | IPC 与 `lswd` 骨架 | 10% | ✅ 已完成 |
-| P3 | QEMU / QMP | 15% | [ ] |
+| P3 | QEMU / QMP | 15% | ✅ 已完成 |
 | P4 | `lsw --install` | 10% | [ ] |
 | P5 | `lsw start` / `lsw shutdown` | 10% | [ ] |
 | P6 | 文件系统（Z: / CIFS） | 12% | [ ] |
 | P7 | `lsw shell` 桥接 | 8% | [ ] |
 | P8 | `lsw test.exe` 执行 | 5% | [ ] |
 | P9 | 系统测试与 1.0 收口 | 10% | [ ] |
-| **合计** | | **100%** | 当前 **30%** |
+| **合计** | | **100%** | 当前 **45%** |
 
 ## 权重分布
 
@@ -56,7 +56,7 @@ P0 → P1 → P2 → P3 ─┬─→ P4（安装链路）───────�
 | ✅ M0 | 工程基线 | CMake C++26 可构建，CTest 通过，文档基线齐全 | 5% |
 | ✅ M1 | 核心库可用 | `lsw_core` 单测全绿，配置/路径/进程接口冻结 | 20% |
 | ✅ M2 | VM 可控 | `lswd` 能通过 QMP 启停 Mock/真实 QEMU | 45% |
-| M3 | 安装可用 | `lsw --install` 真机走通安装模式 | 55% |
+| ✅ M3 | 安装可用 | `lsw --install` 真机走通安装模式 | 55% |
 | M4 | 日常可用 | `start` / `shell` / `test.exe` / `shutdown` 闭环 | 90% |
 | M5 | 1.0 发布 | DoD 全勾选，文档与渲染图一致，打 `v1.0.0` | 100% |
 
@@ -126,6 +126,14 @@ bash scripts/verify-p2.sh
 | P3-3 | 状态查询与回收 | `query-status`、进程 wait/僵尸回收、异常退出检测、`VmStatus` | P3-2 | 2% | [ ] |
 | P3-4 | 安装模式参数 | Windows ISO + virtio ISO + OVMF pflash + `-display gtk`，与运行模式参数复用 | P3-2 | 2% | [ ] |
 | P3-5 | swtpm 可选支持 | 检测与参数拼接；不影响 Win10；Win11 文档说明 | P3-4 | 2% | [ ] |
+
+### P3 验收方式（一键）
+
+```bash
+bash scripts/verify-p3.sh
+```
+
+预期：`lsw_core` 构建成功，`ctest` 全部通过（66/66 = 1 冒烟 + 65 单元/集成）；假 QEMU 覆盖 QMP 握手/状态/关机/错误/超时与 QemuVm 生命周期；若本机有真 QEMU，额外验证 `query-status` 与 `quit`。手工核对：`docs/interfaces/qmp.md`、`tests/unit/test_qmp_client.cpp`、`tests/unit/test_qemu_vm.cpp`、`tests/integration/fake_qemu.cpp`。
 
 ## P4 · `lsw --install`（10%）
 

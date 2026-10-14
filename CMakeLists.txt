@@ -23,6 +23,7 @@ file(GLOB_RECURSE LSW_CORE_SOURCES CONFIGURE_DEPENDS
     "${CMAKE_CURRENT_SOURCE_DIR}/src/core/*.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/util/*.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ipc/*.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/vm/*.cpp"
 )
 if(NOT LSW_CORE_SOURCES)
     message(FATAL_ERROR "src/core 与 src/util 下没有找到任何 C++ 源文件")

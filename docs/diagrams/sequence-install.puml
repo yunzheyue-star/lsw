@@ -2,7 +2,9 @@
 title lsw --install 时序
 actor User
 participant "lsw" as CLI
+participant "QemuVm" as VM
 participant "QEMU/KVM" as QEMU
+participant "swtpm（可选）" as SWTPM
 participant "Windows 安装程序" as Win
 
 User -> CLI : lsw --install
@@ -13,7 +15,11 @@ else 依赖就绪
   CLI -> User : 交互式询问 Windows ISO / virtio-win ISO
   User --> CLI : 合法 ISO 路径（不下载、不内置）
   CLI -> CLI : 创建 $DATA/vm/disk.qcow2、$DATA/vm/OVMF_VARS.fd
-  CLI -> QEMU : 启动安装模式（-display gtk）
+  opt Windows 11 或用户启用
+    VM -> SWTPM : 启动 swtpm --tpm2（unixio ctrl socket）
+  end
+  CLI -> VM : start_install()
+  VM -> QEMU : 启动安装模式（-display gtk + 双 ISO + pflash）
   QEMU -> Win : 显示安装界面
   User -> Win : 完成 Windows 安装
   Win -> Win : 启用 OpenSSH / QEMU Guest Agent / SMB，映射 Z:

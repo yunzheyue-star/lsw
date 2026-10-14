@@ -285,4 +285,225 @@ Result<ProcessResult> run_process(const std::vector<std::string>& argv,
   return result;
 }
 
+namespace {
+
+Status open_redirect(const std::optional<std::filesystem::path>& file, int& fd) {
+  if (file.has_value()) {
+    fd = ::open(file->c_str(), O_WRONLY | O_CREAT | O_APPEND, 0644);
+  } else {
+    fd = ::open("/dev/null", O_WRONLY);
+  }
+  if (fd < 0) {
+    return fail(ErrorCode::kIoError,
+                std::string("打开输出重定向失败: ") + std::strerror(errno));
+  }
+  const int flags = ::fcntl(fd, F_GETFD);
+  if (flags >= 0) {
+    ::fcntl(fd, F_SETFD, flags | FD_CLOEXEC);
+  }
+  return {};
+}
+
+}  // namespace
+
+namespace core {
+
+ChildProcess::ChildProcess(ChildProcess&& other) noexcept
+    : pid_(other.pid_), exit_code_(other.exit_code_) {
+  other.pid_ = -1;
+  other.exit_code_.reset();
+}
+
+ChildProcess& ChildProcess::operator=(ChildProcess&& other) noexcept {
+  if (this != &other) {
+    if (valid() && !exit_code_.has_value()) {
+      (void)kill();
+      (void)wait();
+    }
+    pid_ = other.pid_;
+    exit_code_ = other.exit_code_;
+    other.pid_ = -1;
+    other.exit_code_.reset();
+  }
+  return *this;
+}
+
+ChildProcess::~ChildProcess() {
+  if (valid() && !exit_code_.has_value()) {
+    (void)send_signal(SIGKILL);
+    (void)wait();
+  }
+}
+
+Result<ChildProcess> ChildProcess::spawn(const std::vector<std::string>& argv,
+                                         const SpawnOptions& options) {
+  if (argv.empty() || argv.front().empty()) {
+    return fail(ErrorCode::kInvalidArgument, "argv 不能为空");
+  }
+
+  int exec_pipe[2] = {-1, -1};
+  if (::pipe(exec_pipe) != 0) {
+    return fail(ErrorCode::kProcessError,
+                std::string("创建管道失败: ") + std::strerror(errno));
+  }
+  {
+    const int flags = ::fcntl(exec_pipe[1], F_GETFD);
+    if (flags >= 0) {
+      ::fcntl(exec_pipe[1], F_SETFD, flags | FD_CLOEXEC);
+    }
+  }
+
+  int stdout_fd = -1;
+  int stderr_fd = -1;
+  if (auto status = open_redirect(options.stdout_file, stdout_fd); !status) {
+    ::close(exec_pipe[0]);
+    ::close(exec_pipe[1]);
+    return std::unexpected(status.error());
+  }
+  if (auto status = open_redirect(options.stderr_file, stderr_fd); !status) {
+    ::close(exec_pipe[0]);
+    ::close(exec_pipe[1]);
+    ::close(stdout_fd);
+    return std::unexpected(status.error());
+  }
+
+  const pid_t pid = ::fork();
+  if (pid < 0) {
+    ::close(exec_pipe[0]);
+    ::close(exec_pipe[1]);
+    ::close(stdout_fd);
+    ::close(stderr_fd);
+    return fail(ErrorCode::kProcessError,
+                std::string("fork 失败: ") + std::strerror(errno));
+  }
+
+  if (pid == 0) {
+    if (options.cwd.has_value() && ::chdir(options.cwd->c_str()) != 0) {
+      const int code = errno;
+      const ssize_t ignored = ::write(exec_pipe[1], &code, sizeof(code));
+      (void)ignored;
+      ::_exit(126);
+    }
+    (void)::dup2(stdout_fd, STDOUT_FILENO);
+    (void)::dup2(stderr_fd, STDERR_FILENO);
+    ::close(stdout_fd);
+    ::close(stderr_fd);
+
+    std::vector<char*> raw;
+    raw.reserve(argv.size() + 1);
+    for (const auto& arg : argv) {
+      raw.push_back(const_cast<char*>(arg.c_str()));
+    }
+    raw.push_back(nullptr);
+    ::execvp(raw.front(), raw.data());
+
+    const int code = errno;
+    const ssize_t ignored = ::write(exec_pipe[1], &code, sizeof(code));
+    (void)ignored;
+    ::_exit(127);
+  }
+
+  ::close(exec_pipe[1]);
+  ::close(stdout_fd);
+  ::close(stderr_fd);
+
+  int exec_errno = 0;
+  ssize_t bytes = 0;
+  do {
+    bytes = ::read(exec_pipe[0], &exec_errno, sizeof(exec_errno));
+  } while (bytes < 0 && errno == EINTR);
+  ::close(exec_pipe[0]);
+
+  if (bytes == static_cast<ssize_t>(sizeof(exec_errno))) {
+    int status = 0;
+    while (::waitpid(pid, &status, 0) < 0 && errno == EINTR) {
+    }
+    return fail(ErrorCode::kProcessError,
+                "无法执行 '" + argv.front() + "': " + std::strerror(exec_errno));
+  }
+  if (bytes < 0) {
+    ::kill(pid, SIGKILL);
+    int status = 0;
+    while (::waitpid(pid, &status, 0) < 0 && errno == EINTR) {
+    }
+    return fail(ErrorCode::kProcessError,
+                std::string("读取 exec 状态失败: ") + std::strerror(errno));
+  }
+
+  ChildProcess child;
+  child.pid_ = pid;
+  return child;
+}
+
+void ChildProcess::reap_nonblocking() noexcept {
+  if (!valid() || exit_code_.has_value()) {
+    return;
+  }
+  int status = 0;
+  const pid_t reaped = ::waitpid(pid_, &status, WNOHANG);
+  if (reaped == pid_) {
+    exit_code_ = decode_status(status);
+  } else if (reaped < 0 && errno == ECHILD) {
+    exit_code_ = -1;
+  }
+}
+
+bool ChildProcess::running() {
+  reap_nonblocking();
+  return valid() && !exit_code_.has_value();
+}
+
+Result<int> ChildProcess::wait() {
+  if (exit_code_.has_value()) {
+    return *exit_code_;
+  }
+  if (!valid()) {
+    return fail(ErrorCode::kProcessError, "进程无效");
+  }
+  int status = 0;
+  pid_t reaped = -1;
+  do {
+    reaped = ::waitpid(pid_, &status, 0);
+  } while (reaped < 0 && errno == EINTR);
+  if (reaped < 0) {
+    return fail(ErrorCode::kProcessError,
+                std::string("waitpid 失败: ") + std::strerror(errno));
+  }
+  exit_code_ = decode_status(status);
+  return *exit_code_;
+}
+
+Result<int> ChildProcess::wait_for(std::chrono::milliseconds timeout) {
+  if (exit_code_.has_value()) {
+    return *exit_code_;
+  }
+  if (!valid()) {
+    return fail(ErrorCode::kProcessError, "进程无效");
+  }
+  const auto deadline = std::chrono::steady_clock::now() + timeout;
+  while (std::chrono::steady_clock::now() < deadline) {
+    if (!running()) {
+      return *exit_code_;
+    }
+    ::usleep(10 * 1000);
+  }
+  if (!running()) {
+    return *exit_code_;
+  }
+  return fail(ErrorCode::kProcessTimeout, "等待进程退出超时");
+}
+
+Status ChildProcess::send_signal(int signal) noexcept {
+  if (!valid() || exit_code_.has_value()) {
+    return {};
+  }
+  if (::kill(pid_, signal) != 0) {
+    return fail(ErrorCode::kProcessError,
+                std::string("发送信号失败: ") + std::strerror(errno));
+  }
+  return {};
+}
+
+}  // namespace core
+
 }  // namespace lsw

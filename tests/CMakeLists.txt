@@ -30,6 +30,19 @@ catch_discover_tests(lsw_core_tests
     TEST_PREFIX "core."
 )
 
-# ===== 集成探针：供 scripts/verify-p2.sh 调用真实 lswd =====
+# ===== 集成探针与测试替身 =====
 add_executable(lsw_ipc_probe "${CMAKE_CURRENT_SOURCE_DIR}/integration/ipc_probe.cpp")
 target_link_libraries(lsw_ipc_probe PRIVATE lsw_core)
+
+# 假 QEMU：无 KVM/固件环境下提供真实 QMP 行为
+add_executable(lsw_fake_qemu "${CMAKE_CURRENT_SOURCE_DIR}/integration/fake_qemu.cpp")
+target_link_libraries(lsw_fake_qemu PRIVATE lsw_core)
+
+# 真实 QEMU QMP 冒烟探针
+add_executable(lsw_qmp_probe "${CMAKE_CURRENT_SOURCE_DIR}/integration/qmp_probe.cpp")
+target_link_libraries(lsw_qmp_probe PRIVATE lsw_core)
+
+# 单元测试需要知道假 QEMU 的构建路径
+target_compile_definitions(lsw_core_tests PRIVATE
+    LSW_FAKE_QEMU_PATH="$<TARGET_FILE:lsw_fake_qemu>")
+add_dependencies(lsw_core_tests lsw_fake_qemu)

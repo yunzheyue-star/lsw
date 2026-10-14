@@ -18,6 +18,11 @@
 - IPC：JSON Lines 协议（`ipc/protocol`）、Unix Socket `Client`/`Server`（多连接、0700 权限、优雅关闭）。
 - `lswd` 骨架：`lswd.pid` + `flock` 单实例锁、SIGINT/SIGTERM 优雅退出、`status` 命令、socket/PID 清理；`DaemonState` 幂等状态机。
 - 集成探针 `tests/integration/ipc_probe.cpp` 与 P2 验收脚本 `scripts/verify-p2.sh`。
+- `QmpClient`：QMP greeting/`qmp_capabilities` 握手、按 id 匹配、异步事件跳过、错误对象分类、读取超时。
+- `QemuVm`：运行/安装参数构建、后台进程 RAII、`query-status` 状态映射、`system_powerdown` → SIGTERM → SIGKILL 关闭流程。
+- `ChildProcess`（`core/process`）：后台子进程、输出重定向文件、`wait_for`、析构回收。
+- swtpm 可选检测与 TPM 设备参数；OVMF/KVM 依赖校验。
+- 测试替身 `tests/integration/fake_qemu.cpp`、真实 QMP 探针 `qmp_probe.cpp` 与 P3 验收脚本 `scripts/verify-p3.sh`；单元/集成测试增至 65 例。
 
 ### 变更
 
@@ -27,7 +32,7 @@
 - 统一 SSH 用户：取 `config.user.windows_user`（默认 `lsw`）；`agent.md`、`SKILL.md` 示例参数化，`PROMPT.md` 中的 `user` 明确为该字段。
 - `CMakeLists.txt` 自动 glob 改为按模块目录：`src/core`、`src/util` 进 `lsw_core`，`src/cli` 进 `lsw`（`CONFIGURE_DEPENDS`）。
 - CMake 目标拆分：`lsw_core`（静态库）+ `lsw`（CLI 可执行文件，链接 `lsw_core`）；`main.cpp` 迁移到 `src/cli/main.cpp`。
-- 新增 `lswd` 可执行目标（`src/daemon/`）；`lsw_core` 纳入 `src/ipc/`。
+- 新增 `lswd` 可执行目标（`src/daemon/`）；`lsw_core` 纳入 `src/ipc/` 与 `src/vm/`。
 - CLI11 由 v2.4.2 升级到 v2.7.2。
 
 ### 修复
@@ -38,3 +43,4 @@
 - 修正 `docs/architecture.md` 的阶段编号（1~8 → P1~P9），与 `docs/TASKS.md` 对齐。
 - 修复 `run_process` 自锁：父进程读取 exec 状态管道前未关闭自身写端，导致成功执行时死锁（由 P1 超时用例暴露）。
 - 修复 CLI11 低版本 `cmake_minimum_required(VERSION 3.5)` 触发的 CMake 弃用警告：升级到 v2.7.2（要求 CMake >= 3.14）。
+- 修复 `QmpClient` 读取粘包丢行：一次 `recv` 包含事件与响应两行时，原实现丢弃缓冲区剩余内容导致偶发超时；改为持久接收缓冲按行消费。

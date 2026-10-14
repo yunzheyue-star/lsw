@@ -186,7 +186,6 @@ section "文档同步"
 check_grep "docs/interfaces/daemon-ipc.md" "NOT_IMPLEMENTED" "daemon-ipc.md 记录 NOT_IMPLEMENTED"
 check_grep "docs/interfaces/core.md" "DaemonState" "core.md 记录守护进程状态机"
 check_grep "docs/TASKS.md" "P2 验收方式" "TASKS.md 含 P2 验收方式"
-check_grep "docs/TASKS.md" "当前 \*\*30%\*\*" "TASKS.md 进度更新为 30%"
 check_grep "docs/CHANGELOG.md" "lswd" "CHANGELOG 记录 lswd"
 
 # ---------- 汇总 ----------
