@@ -73,6 +73,33 @@ public:
 };
 ```
 
+## 安装流程（Installer，P4）
+
+```cpp
+struct InstallOptions {
+  std::filesystem::path windows_iso, virtio_iso, disk_image;
+  std::uint64_t disk_size_gb{64};
+  std::filesystem::path kvm_device, qemu_binary, qemu_img_binary;
+  std::filesystem::path ovmf_code, ovmf_vars_template, swtpm_binary;
+  bool require_kvm{true}, require_swtpm{false}, interactive{true};
+  bool overwrite_disk{false};
+  QemuVmOptions qemu_options;
+};
+
+class Installer {
+public:
+  Result<DependencyReport> check_dependencies() const;
+  Status validate_isos();
+  Status prepare_storage();
+  Result<InstallResult> run();
+  std::vector<std::string> post_install_guidance() const;
+};
+```
+
+- 依赖检查区分必选（QEMU / qemu-img / OVMF）与可选（swtpm）；缺失信息聚合为可执行的修复建议。
+- `prepare_storage()` 幂等：已存在的 `disk.qcow2` 与 `OVMF_VARS.fd` 不覆盖。
+- `run()` 依次执行依赖检查 → ISO 校验 → 存储准备 → `QemuVm::start_install()` → `wait()`；QEMU 非零退出映射为 `kQemuError`。
+
 ## 启动参数
 
 | 模式 | 关键参数 |
@@ -80,10 +107,25 @@ public:
 | 公共 | `-name <vm.name>`、`-smp`、`-m`、`-drive file=$DATA/vm/disk.qcow2,if=virtio,format=qcow2` |
 | 加速 | KVM：`-enable-kvm -machine q35,accel=kvm -cpu host`；TCG：`-machine q35,accel=tcg -cpu max` |
 | 固件 | `-drive if=pflash,format=raw,readonly=on,file=<OVMF_CODE>`、`-drive if=pflash,format=raw,file=$DATA/vm/OVMF_VARS.fd` |
-| 网络 | `-netdev user,id=net0,hostfwd=tcp:127.0.0.1:2222-:22,hostfwd=tcp:127.0.0.1:1445-:445,smb=$HOME` |
+| 网络 | `-netdev user,id=net0,hostfwd=tcp:127.0.0.1:2222-:22,hostfwd=tcp:127.0.0.1:1445-:445`；检测到 `smbd` 时追加 `smb=$HOME`（QEMU user SMB 需要 Samba），否则跳过并警告 |
 | QMP / QGA | `-qmp unix:$RUNTIME/lsw/qmp.sock,server=on,wait=off`、`-chardev socket,path=$RUNTIME/lsw/qga.sock,...` |
 | 运行模式 | `-display none` |
 | 安装模式 | Windows ISO + virtio-win ISO（`media=cdrom,readonly=on`）、`-display gtk` |
+
+## OVMF 固件探测
+
+`detect_ovmf_code()` / `detect_ovmf_vars_template()` 按以下候选路径探测：
+
+| 发行版 / 包 | 典型路径 |
+| --- | --- |
+| Arch `edk2-ovmf` | `/usr/share/edk2/x64/OVMF_CODE.4m.fd`、`OVMF_VARS.4m.fd` |
+| Debian / Ubuntu `ovmf` | `/usr/share/OVMF/OVMF_CODE.fd`、`OVMF_VARS.fd`（含 `_4M` 变体） |
+| Fedora `edk2-ovmf` | `/usr/share/edk2/ovmf/OVMF_CODE.fd`、`OVMF_VARS.fd` |
+| 其他 | `/usr/share/ovmf/x64/`、`/usr/share/qemu/` 下同名文件 |
+
+`Installer::check_dependencies()` 会按发行版给出安装提示：Arch 用
+`sudo pacman -S edk2-ovmf`，Debian/Ubuntu 用 `sudo apt install ovmf`，
+Fedora 用 `sudo dnf install edk2-ovmf`。
 
 ## swtpm（可选）
 

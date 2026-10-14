@@ -29,9 +29,17 @@
 | `--virtio-iso <path>` | virtio-win ISO |
 | `--disk <path>` | qcow2 路径，默认 `~/.local/share/lsw/vm/disk.qcow2` |
 
-行为：检查 `/dev/kvm`、QEMU、OVMF、swtpm → 创建磁盘与 `$DATA/vm/OVMF_VARS.fd` → 启动 QEMU 安装模式（GUI）→ 安装完成后提示启用 OpenSSH Server、QEMU Guest Agent、SMB 并映射 `Z:`。
+> 不支持位置参数：ISO / 磁盘路径必须用 `--iso`、`--virtio-iso`、`--disk` 指定；只运行 `lsw --install`（不带任何路径）时，会在交互终端中提示输入。
 
-退出码：`0`、`2`、`3`、`8`。
+行为（P4 已实现）：
+
+1. 依赖检查：`/dev/kvm`、`qemu-system-x86_64`、`qemu-img`、`OVMF_CODE.fd`、`OVMF_VARS.fd` 模板、可选 `swtpm`；缺失时按发行版列出修复建议（Arch：`sudo pacman -S edk2-ovmf`；Debian/Ubuntu：`sudo apt install ovmf`；Fedora：`sudo dnf install edk2-ovmf`）。
+2. ISO 输入：优先使用 `--iso` / `--virtio-iso`；未提供且为交互终端时提示输入；非 TTY 环境必须显式传参。只做存在性、可读性、`.iso` 扩展名校验，**不下载、不内置**。
+3. 存储准备：`qemu-img create -f qcow2` 创建 `$DATA/vm/disk.qcow2`；复制 OVMF VARS 模板到 `$DATA/vm/OVMF_VARS.fd`；重复执行不覆盖已有文件。
+4. 启动安装模式：`QemuVm::start_install()`（`-display gtk` + Windows ISO + virtio-win ISO + OVMF pflash），等待用户完成安装并关闭 QEMU。未安装 Samba（`smbd`）时跳过 `smb=$HOME` 并警告，安装仍可继续，但 Windows 内 `Z:` 共享将在安装 Samba 后才可用。
+5. 安装后输出 `scripts/post-install.ps1` 指引：检查 OpenSSH Server、QEMU Guest Agent、SMB、`Z:` 映射。
+
+退出码：`0` 成功、`2` 参数/ISO 错误、`3` 依赖缺失、`8` QEMU 异常退出。
 
 ### `lsw start`
 

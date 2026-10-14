@@ -4,9 +4,9 @@
 # - lsw_core_tests：lsw_core 单元测试（Catch2 v3，P1 起）
 
 # ===== 冒烟测试 =====
-add_test(NAME lsw_smoke COMMAND $<TARGET_FILE:lsw>)
+add_test(NAME lsw_smoke COMMAND $<TARGET_FILE:lsw> --version)
 set_tests_properties(lsw_smoke PROPERTIES
-    PASS_REGULAR_EXPRESSION "Hello, from lsw!"
+    PASS_REGULAR_EXPRESSION "lsw 0\\.1\\.0"
     LABELS "smoke"
 )
 
@@ -41,6 +41,10 @@ target_link_libraries(lsw_fake_qemu PRIVATE lsw_core)
 # 真实 QEMU QMP 冒烟探针
 add_executable(lsw_qmp_probe "${CMAKE_CURRENT_SOURCE_DIR}/integration/qmp_probe.cpp")
 target_link_libraries(lsw_qmp_probe PRIVATE lsw_core)
+
+# 安装流程集成探针（假 QEMU）
+add_executable(lsw_install_probe "${CMAKE_CURRENT_SOURCE_DIR}/integration/install_probe.cpp")
+target_link_libraries(lsw_install_probe PRIVATE lsw_core)
 
 # 单元测试需要知道假 QEMU 的构建路径
 target_compile_definitions(lsw_core_tests PRIVATE

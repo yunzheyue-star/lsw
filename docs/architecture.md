@@ -63,8 +63,10 @@
 | `lswd`：单实例锁、信号处理、status 命令、socket 清理 | ✅ P2 骨架已建立 |
 | QMP：QmpClient 握手 / execute / 事件跳过 / 错误分类 | ✅ P3 已建立 |
 | `QemuVm`：运行与安装参数、进程 RAII、状态查询、优雅关闭、swtpm 可选 | ✅ P3 已建立 |
+| `Installer`：依赖检查、ISO 校验、磁盘与 UEFI 变量准备、安装执行、安装后指引 | ✅ P4 已建立 |
+| CLI：CLI11 解析 `--install` / `--iso` / `--virtio-iso` / `--disk` / `--version` / `--help` | ✅ P4 已建立 |
 | `lsw` 编译 `src/cli/` 并链接 `lsw_core`；模块目录自动 glob | ✅ P1 已建立 |
 | 单元测试：CTest + Catch2（`tests/unit/`） | ✅ P1 已建立 |
-| CLI 命令解析、fs / shell / exec 功能模块 | ⏳ 规划中（P4~P9，见 `docs/TASKS.md` 与 `CHANGELOG.md`） |
+| `start`/`shutdown` 编排、fs / shell / exec 功能模块 | ⏳ 规划中（P5~P9，见 `docs/TASKS.md` 与 `CHANGELOG.md`） |
 
 > 核心库公开接口见 `docs/interfaces/core.md`，配置字段见 `docs/interfaces/config.md`。

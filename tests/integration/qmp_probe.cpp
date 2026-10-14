@@ -7,38 +7,38 @@
 
 #include <lsw/vm/qmp_client.hpp>
 
-int main(int argc, char** argv) {
-  if (argc < 2) {
-    std::cerr << "用法: lsw_qmp_probe <qmp-socket> [command] [json-args]\n";
-    return 2;
-  }
-  const std::string command = argc >= 3 ? argv[2] : "query-status";
-  nlohmann::json args = nlohmann::json::object();
-  if (argc >= 4) {
-    args = nlohmann::json::parse(argv[3], nullptr, false);
-    if (args.is_discarded()) {
-      std::cerr << "ERROR: 非法 JSON 参数\n";
-      return 2;
+int main(int argc, char **argv) {
+    if (argc < 2) {
+        std::cerr << "用法: lsw_qmp_probe <qmp-socket> [command] [json-args]\n";
+        return 2;
     }
-  }
+    const std::string command = argc >= 3 ? argv[2] : "query-status";
+    nlohmann::json args = nlohmann::json::object();
+    if (argc >= 4) {
+        args = nlohmann::json::parse(argv[3], nullptr, false);
+        if (args.is_discarded()) {
+            std::cerr << "ERROR: 非法 JSON 参数\n";
+            return 2;
+        }
+    }
 
-  lsw::vm::QmpOptions options;
-  options.socket_path = argv[1];
-  options.connect_timeout = std::chrono::milliseconds(3000);
-  options.io_timeout = std::chrono::milliseconds(3000);
-  lsw::vm::QmpClient client(options);
+    lsw::vm::QmpOptions options;
+    options.socket_path = argv[1];
+    options.connect_timeout = std::chrono::milliseconds(3000);
+    options.io_timeout = std::chrono::milliseconds(3000);
+    lsw::vm::QmpClient client(options);
 
-  if (auto connected = client.connect(); !connected) {
-    std::cerr << "ERROR " << lsw::to_string(connected.error().code) << ": "
-              << connected.error().message << "\n";
-    return 1;
-  }
-  const auto result = client.execute(command, args);
-  if (!result) {
-    std::cerr << "ERROR " << lsw::to_string(result.error().code) << ": "
-              << result.error().message << "\n";
-    return 1;
-  }
-  std::cout << result->dump() << "\n";
-  return 0;
+    if (auto connected = client.connect(); !connected) {
+        std::cerr << "ERROR " << lsw::to_string(connected.error().code) << ": "
+                  << connected.error().message << "\n";
+        return 1;
+    }
+    const auto result = client.execute(command, args);
+    if (!result) {
+        std::cerr << "ERROR " << lsw::to_string(result.error().code) << ": "
+                  << result.error().message << "\n";
+        return 1;
+    }
+    std::cout << result->dump() << "\n";
+    return 0;
 }

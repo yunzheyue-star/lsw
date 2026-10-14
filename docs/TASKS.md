@@ -7,21 +7,26 @@
 
 ---
 
+## 状态维护分工（自 P5 起）
+
+- **主人**：只维护「总览」表的「状态」列。
+- **开发代理**：维护其余内容——阶段明细状态、当前进度、里程碑、验收方式、权重与说明。
+
 ## 总览
 
 | 阶段 | 名称 | 权重 | 状态 |
 | --- | --- | ---: | :---: |
-| P0 | 工程基线 | 5% | ✅ 已完成 |
-| P1 | `lsw_core` 核心库 | 15% | ✅ 已完成 |
-| P2 | IPC 与 `lswd` 骨架 | 10% | ✅ 已完成 |
-| P3 | QEMU / QMP | 15% | ✅ 已完成 |
-| P4 | `lsw --install` | 10% | [ ] |
+| P0 | 工程基线 | 5% | [x] |
+| P1 | `lsw_core` 核心库 | 15% | [x] |
+| P2 | IPC 与 `lswd` 骨架 | 10% | [x] |
+| P3 | QEMU / QMP | 15% | [x] |
+| P4 | `lsw --install` | 10% | [x] |
 | P5 | `lsw start` / `lsw shutdown` | 10% | [ ] |
 | P6 | 文件系统（Z: / CIFS） | 12% | [ ] |
 | P7 | `lsw shell` 桥接 | 8% | [ ] |
 | P8 | `lsw test.exe` 执行 | 5% | [ ] |
 | P9 | 系统测试与 1.0 收口 | 10% | [ ] |
-| **合计** | | **100%** | 当前 **45%** |
+| **合计** | | **100%** | 当前 **55%** |
 
 ## 权重分布
 
@@ -135,17 +140,25 @@ bash scripts/verify-p3.sh
 
 预期：`lsw_core` 构建成功，`ctest` 全部通过（66/66 = 1 冒烟 + 65 单元/集成）；假 QEMU 覆盖 QMP 握手/状态/关机/错误/超时与 QemuVm 生命周期；若本机有真 QEMU，额外验证 `query-status` 与 `quit`。手工核对：`docs/interfaces/qmp.md`、`tests/unit/test_qmp_client.cpp`、`tests/unit/test_qemu_vm.cpp`、`tests/integration/fake_qemu.cpp`。
 
-## P4 · `lsw --install`（10%）
+## P4 · `lsw --install`（10%，已完成）
 
 | 编号 | 任务 | 交付物 / 验收标准 | 依赖 | 权重 | 状态 |
 | --- | --- | --- | --- | ---: | :---: |
-| P4-1 | 依赖检查 | `/dev/kvm` 可访问、`qemu-system-x86_64`、OVMF_CODE/VARS、swtpm；缺失退出码 3 + 修复指引 | P3 | 2% | [ ] |
-| P4-2 | ISO 交互与校验 | `--iso` / `--virtio-iso` 或交互输入；存在/可读/类型校验；不下载、不内置 | P4-1 | 2% | [ ] |
-| P4-3 | 磁盘与 UEFI 变量 | `qemu-img create` 到 `$DATA/vm/disk.qcow2`；复制 OVMF_VARS；重复执行不覆盖 | P4-1 | 2% | [ ] |
-| P4-4 | 安装模式执行 | GUI 正常显示、等待 QEMU 退出、异常退出码 8、安装完成检测 | P3-4、P4-3 | 2% | [ ] |
-| P4-5 | 安装后引导 | `scripts/post-install.ps1`（OpenSSH/QGA/SMB/`Z:` 检查）+ CLI 指引 + 文档更新 | P4-4 | 2% | [ ] |
+| P4-1 | 依赖检查 | `/dev/kvm` 可访问、`qemu-system-x86_64`、OVMF_CODE/VARS、swtpm；缺失退出码 3 + 修复指引 | P3 | 2% | [x] |
+| P4-2 | ISO 交互与校验 | `--iso` / `--virtio-iso` 或交互输入；存在/可读/类型校验；不下载、不内置 | P4-1 | 2% | [x] |
+| P4-3 | 磁盘与 UEFI 变量 | `qemu-img create` 到 `$DATA/vm/disk.qcow2`；复制 OVMF_VARS；重复执行不覆盖 | P4-1 | 2% | [x] |
+| P4-4 | 安装模式执行 | GUI 正常显示、等待 QEMU 退出、异常退出码 8、安装完成检测 | P3-4、P4-3 | 2% | [x] |
+| P4-5 | 安装后引导 | `scripts/post-install.ps1`（OpenSSH/QGA/SMB/`Z:` 检查）+ CLI 指引 + 文档更新 | P4-4 | 2% | [x] |
 
-## P5 · `lsw start` / `lsw shutdown`（10%）
+### P4 验收方式（一键）
+
+```bash
+bash scripts/verify-p4.sh
+```
+
+预期：全部 C++ 文件通过 `.clang-format` 检查；`ctest` 全部通过（72/72）；`lsw --version` / `lsw --help` 正常；依赖缺失时退出码 3 并给出修复建议；假 QEMU 安装探针完成 `Installer::run()`，创建 `disk.qcow2`、复制 `OVMF_VARS.fd` 并输出安装后指引。手工核对：`docs/interfaces/cli.md`、`scripts/post-install.ps1`、`tests/unit/test_install.cpp`。
+
+## P5 · `lsw start` / `lsw shutdown`（10%，进行中）
 
 | 编号 | 任务 | 交付物 / 验收标准 | 依赖 | 权重 | 状态 |
 | --- | --- | --- | --- | ---: | :---: |

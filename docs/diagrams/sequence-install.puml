@@ -1,28 +1,39 @@
 @startuml
-title lsw --install 时序
+title lsw --install 时序（P4）
 actor User
 participant "lsw" as CLI
+participant "Installer" as INST
 participant "QemuVm" as VM
 participant "QEMU/KVM" as QEMU
 participant "swtpm（可选）" as SWTPM
 participant "Windows 安装程序" as Win
 
-User -> CLI : lsw --install
-CLI -> CLI : 检查 /dev/kvm、QEMU、OVMF、swtpm
+User -> CLI : lsw --install [--iso ... --virtio-iso ... --disk ...]
+CLI -> INST : check_dependencies()
 alt 依赖缺失
-  CLI --> User : 退出码 3 + 修复建议
+  INST --> CLI : 缺少 KVM/QEMU/OVMF（退出码 3 + 修复建议）
 else 依赖就绪
-  CLI -> User : 交互式询问 Windows ISO / virtio-win ISO
-  User --> CLI : 合法 ISO 路径（不下载、不内置）
-  CLI -> CLI : 创建 $DATA/vm/disk.qcow2、$DATA/vm/OVMF_VARS.fd
+  alt 未提供 ISO 且为交互终端
+    INST -> User : 提示输入 Windows ISO / virtio-win ISO
+    User --> INST : ISO 路径
+  end
+  INST -> INST : validate_isos()（存在、可读、.iso；不下载不内置）
+  INST -> INST : qemu-img create $DATA/vm/disk.qcow2（已存在不覆盖）
+  INST -> INST : 复制 OVMF_VARS 模板到 $DATA/vm/OVMF_VARS.fd
   opt Windows 11 或用户启用
     VM -> SWTPM : 启动 swtpm --tpm2（unixio ctrl socket）
   end
-  CLI -> VM : start_install()
-  VM -> QEMU : 启动安装模式（-display gtk + 双 ISO + pflash）
+  INST -> VM : start_install()
+  VM -> QEMU : -display gtk + 双 ISO + pflash
   QEMU -> Win : 显示安装界面
-  User -> Win : 完成 Windows 安装
-  Win -> Win : 启用 OpenSSH / QEMU Guest Agent / SMB，映射 Z:
-  CLI --> User : 输出 scripts/post-install.ps1 后续指引
+  User -> Win : 完成 Windows 安装并关闭 QEMU
+  QEMU --> VM : 进程退出
+  VM --> INST : 退出码
+  alt 退出码非 0
+    INST --> CLI : kQemuError（退出码 8）
+  else 退出码 0
+    INST --> CLI : InstallResult + post_install_guidance()
+    CLI -> User : 输出 scripts/post-install.ps1 检查指引
+  end
 end
 @enduml
