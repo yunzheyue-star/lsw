@@ -135,5 +135,11 @@ function(lsw_resolve_catch2)
         else()
             message(FATAL_ERROR "缺少依赖 Catch2（测试需要）；安装系统包或开启 LSW_FETCH_DEPS。")
         endif()
+    else()
+        # 系统 Catch2：Catch.cmake 位于 ${Catch2_DIR}；find_package 在
+        # function 作用域内修改的 CMAKE_MODULE_PATH 需要显式传回调用方，
+        # 否则 tests/CMakeLists.txt 的 include(Catch) 会失败。
+        list(APPEND CMAKE_MODULE_PATH "${Catch2_DIR}")
+        set(CMAKE_MODULE_PATH "${CMAKE_MODULE_PATH}" PARENT_SCOPE)
     endif()
 endfunction()
