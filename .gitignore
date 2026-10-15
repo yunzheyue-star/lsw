@@ -53,3 +53,4 @@ CMakeUserPresets.json
 *.swo
 *~
 .DS_Store
+.dsh
