@@ -24,6 +24,9 @@ namespace lsw {
 struct RunOptions {
     std::optional<std::filesystem::path> cwd; ///< 子进程工作目录
     std::chrono::milliseconds timeout{0};     ///< 0 表示不设超时
+    /// 写入子进程 stdin 的数据；空表示沿用父进程 stdin。
+    /// 密码等敏感数据只允许走这里，禁止放进 argv。
+    std::optional<std::string> stdin_data;
 };
 
 struct ProcessResult {

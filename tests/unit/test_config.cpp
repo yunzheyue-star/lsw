@@ -67,7 +67,7 @@ TEST_CASE("默认配置与文档一致", "[core][config]") {
     CHECK(config.vm.disk == "~/.local/share/lsw/vm/disk.qcow2");
     CHECK(config.network.ssh_host_port == 2222);
     CHECK(config.network.smb_host_port == 1445);
-    CHECK(config.network.guest_smb_host == "10.0.2.4");
+    CHECK(config.network.guest_smb_host == "10.0.2.2");
     CHECK(config.network.guest_smb_share == "qemu");
     CHECK(config.filesystem.mount_root == "/mnt/Windows");
     CHECK(config.filesystem.linux_home_share == "~");

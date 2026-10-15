@@ -341,6 +341,24 @@ std::jthread Server::run() {
     });
 }
 
+namespace {
+
+/// @brief 安全编码响应：遇到非法 UTF-8 时降级为 INTERNAL 错误。
+/// @param response 待编码的响应对象。
+/// @return JSON Lines 文本，保证不抛异常。
+std::string safe_encode_line(const Response &response) {
+    try {
+        return encode_line(response);
+    } catch (const std::exception &) {
+        const Response fallback =
+            Response::failure(response.id, std::string(kInternal),
+                              "响应中包含无法编码的字节，已降级为安全错误");
+        return encode_line(fallback);
+    }
+}
+
+} // namespace
+
 /** @brief 处理单个客户端连接上的请求并写回响应。
  * @param fd 客户端连接文件描述符。
  */
@@ -354,7 +372,7 @@ void Server::handle_connection(int fd) {
     if (!request) {
         const Response response = Response::failure(
             "", std::string(kBadRequest), request.error().message);
-        (void)write_all(fd, encode_line(response),
+        (void)write_all(fd, safe_encode_line(response),
                         std::chrono::milliseconds(2000));
         return;
     }
@@ -382,7 +400,8 @@ void Server::handle_connection(int fd) {
                                          "处理器内部异常");
         }
     }
-    (void)write_all(fd, encode_line(response), std::chrono::milliseconds(2000));
+    (void)write_all(fd, safe_encode_line(response),
+                    std::chrono::milliseconds(2000));
 }
 
 } // namespace lsw::ipc

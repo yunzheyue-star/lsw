@@ -107,11 +107,7 @@ TEST_CASE("运行模式参数符合 SKILL-02", "[vm][qemu]") {
     CHECK(has_pair(*args, "-boot", "order=c"));
     CHECK(has_arg_containing(*args, "hostfwd=tcp:127.0.0.1:2222-:22"));
     CHECK(has_arg_containing(*args, "hostfwd=tcp:127.0.0.1:1445-:445"));
-    if (lsw::vm::find_executable("smbd").empty()) {
-        CHECK_FALSE(has_arg_containing(*args, "smb="));
-    } else {
-        CHECK(has_arg_containing(*args, "smb=/home/alice"));
-    }
+    CHECK_FALSE(has_arg_containing(*args, "smb="));
     CHECK(has_arg_containing(
         *args, "unix:" + (paths.runtime_dir / "qmp.sock").string()));
     CHECK(has_arg_containing(*args, (temp.path() / "disk.qcow2").string()));

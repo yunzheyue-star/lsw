@@ -26,6 +26,10 @@ inline constexpr std::string_view kNotImplemented = "NOT_IMPLEMENTED";
 inline constexpr std::string_view kPathOutsideHome = "PATH_OUTSIDE_HOME";
 inline constexpr std::string_view kSshFailed = "SSH_FAILED";
 inline constexpr std::string_view kMountFailed = "MOUNT_FAILED";
+inline constexpr std::string_view kUnmountFailed = "UNMOUNT_FAILED";
+inline constexpr std::string_view kShareSetupFailed = "SHARE_SETUP_FAILED";
+inline constexpr std::string_view kPermissionDenied = "PERMISSION_DENIED";
+inline constexpr std::string_view kMissingDependency = "MISSING_DEPENDENCY";
 inline constexpr std::string_view kQmpError = "QMP_ERROR";
 inline constexpr std::string_view kInternal = "INTERNAL";
 

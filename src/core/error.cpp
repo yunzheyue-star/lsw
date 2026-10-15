@@ -61,6 +61,14 @@ std::string_view to_string(ErrorCode code) noexcept {
         return "DaemonUnavailable";
     case ErrorCode::kProtocolError:
         return "ProtocolError";
+    case ErrorCode::kMountFailed:
+        return "MountFailed";
+    case ErrorCode::kUnmountFailed:
+        return "UnmountFailed";
+    case ErrorCode::kShareSetupFailed:
+        return "ShareSetupFailed";
+    case ErrorCode::kPermissionDenied:
+        return "PermissionDenied";
     }
     return "Unknown";
 }
@@ -89,6 +97,10 @@ int to_exit_code(ErrorCode code) noexcept {
     case ErrorCode::kProgramFailed:
         return 7;
     case ErrorCode::kQemuError:
+    case ErrorCode::kMountFailed:
+    case ErrorCode::kUnmountFailed:
+    case ErrorCode::kShareSetupFailed:
+    case ErrorCode::kPermissionDenied:
         return 8;
     case ErrorCode::kInternal:
         return 1;

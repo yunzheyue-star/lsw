@@ -6,10 +6,14 @@ participant "lswd / DaemonService" as Daemon
 participant "Windows OpenSSH" as WinSSH
 participant "QMP" as QMP
 participant "QEMU" as QEMU
+participant "lsw-mount-helper" as Helper
+participant "CIFS" as CIFS
 
 User -> CLI : lsw shutdown
 CLI -> Daemon : shutdown {}
 Daemon -> Daemon : 幂等：lswd 未运行则直接返回成功
+Daemon -> Helper : unmount /mnt/Windows/{C,D}（先卸载 CIFS）
+Helper -> CIFS : umount
 Daemon -> WinSSH : ssh ... shutdown /s /t 0（优先）
 alt SSH 关机失败
   Daemon -> QMP : system_powerdown

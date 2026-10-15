@@ -47,7 +47,7 @@
 | 流程 | 入口 | 说明 | 时序图 |
 | --- | --- | --- | --- |
 | 安装 | `lsw --install` | 依赖检查 → 交互输入 ISO → 创建磁盘 → GUI 安装 → 安装后指引 | `sequence-install.puml` |
-| 启动 | `lsw start` | 拉起 `lswd` → QMP 启动 VM → 等待 2222 → 挂载 CIFS → 确保 `Z:` | `sequence-start.puml` |
+| 启动 | `lsw start` | 拉起 `lswd` → QMP 启动 VM → 等待 2222 → 启动 host Samba → 挂载 CIFS（`Z:` 延迟到使用会话） | `sequence-start.puml` |
 | Shell | `lsw` / `lsw shell` | 解析 cwd → 映射 `Z:\` → `exec ssh -t` 接管终端 | `sequence-shell.puml` |
 | 执行 | `lsw test.exe` | 解析/复制路径 → 映射 → SSH 执行 → 透传 stdout/stderr/退出码 | `sequence-exec.puml` |
 | 关闭 | `lsw shutdown` | SSH 关机 → QMP `system_powerdown` 兜底 → 卸载 → 停 `lswd` | `sequence-shutdown.puml` |

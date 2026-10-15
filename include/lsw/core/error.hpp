@@ -38,6 +38,10 @@ enum class ErrorCode {
     kNotImplemented = 16,
     kDaemonUnavailable = 17,
     kProtocolError = 18,
+    kMountFailed = 19,
+    kUnmountFailed = 20,
+    kShareSetupFailed = 21,
+    kPermissionDenied = 22,
 };
 
 struct Error {

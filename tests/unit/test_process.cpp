@@ -93,6 +93,13 @@ TEST_CASE("无法执行时返回 ProcessError", "[core][process]") {
     CHECK(result.error().message.find("无法执行") != std::string::npos);
 }
 
+TEST_CASE("非 UTF-8 进程输出被清洗为合法 UTF-8", "[core][process]") {
+    const auto result = run_process({lsw::test::binary("printf"), "\\262\\n"});
+    REQUIRE(result.has_value());
+    CHECK(result->exit_code == 0);
+    CHECK(result->stdout_data == "\xEF\xBF\xBD\n");
+}
+
 TEST_CASE("空 argv 返回参数错误", "[core][process]") {
     const auto result = run_process({});
     REQUIRE_FALSE(result.has_value());

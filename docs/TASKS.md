@@ -22,11 +22,11 @@
 | P3 | QEMU / QMP | 15% | [x] |
 | P4 | `lsw --install` | 10% | [x] |
 | P5 | `lsw start` / `lsw shutdown` | 10% | [x] |
-| P6 | 文件系统（Z: / CIFS） | 12% | [ ] |
+| P6 | 文件系统（Z: / CIFS） | 12% | [x] |
 | P7 | `lsw shell` 桥接 | 8% | [ ] |
 | P8 | `lsw test.exe` 执行 | 5% | [ ] |
 | P9 | 系统测试与 1.0 收口 | 10% | [ ] |
-| **合计** | | **100%** | 当前 **65%** |
+| **合计** | | **100%** | 当前 **77%** |
 
 ## 权重分布
 
@@ -127,7 +127,7 @@ bash scripts/verify-p2.sh
 | 编号 | 任务 | 交付物 / 验收标准 | 依赖 | 权重 | 状态 |
 | --- | --- | --- | --- | ---: | :---: |
 | P3-1 | `QmpClient` | 连接、`qmp_capabilities` 握手、`execute`、错误分类；mock socket 单测 | P1、P2 | 5% | [ ] |
-| P3-2 | `QemuVm` 运行模式 | QEMU 参数（q35/KVM/virtio/OVMF/hostfwd 2222+1445/`smb=$HOME`/QMP）、`-display none`、进程持有 | P3-1 | 4% | [ ] |
+| P3-2 | `QemuVm` 运行模式 | QEMU 参数（q35/KVM/virtio/OVMF/hostfwd 2222+1445/QMP）、`-display none`、进程持有；`Z:` 由宿主 root Samba + guest `10.0.2.2` 提供 | P3-1 | 4% | [ ] |
 | P3-3 | 状态查询与回收 | `query-status`、进程 wait/僵尸回收、异常退出检测、`VmStatus` | P3-2 | 2% | [ ] |
 | P3-4 | 安装模式参数 | Windows ISO + virtio ISO + OVMF pflash + `-display gtk`，与运行模式参数复用 | P3-2 | 2% | [ ] |
 | P3-5 | swtpm 可选支持 | 检测与参数拼接；不影响 Win10；Win11 文档说明 | P3-4 | 2% | [ ] |
@@ -175,15 +175,28 @@ bash scripts/verify-p5.sh
 
 预期：`ctest` 全部通过（83/83）；假 QEMU 下 `lswd + lsw start` 返回 running、重复 start 幂等、`lsw shutdown` 后 lswd 退出并清理 socket/PID；`clang-format` 与 Doxygen 文件头检查通过。手工核对：`docs/interfaces/cli.md`、`docs/interfaces/daemon-ipc.md`、`tests/unit/test_daemon_service.cpp`。
 
-## P6 · 文件系统（Z: / CIFS）（12%）
+## P6 · 文件系统（Z: / CIFS）（12%，已完成）
 
 | 编号 | 任务 | 交付物 / 验收标准 | 依赖 | 权重 | 状态 |
 | --- | --- | --- | --- | ---: | :---: |
-| P6-1 | Windows 映射 `Z:` | QEMU user SMB 共享 `$HOME`；SSH 执行 `net use Z:` 持久化；`Set-Location Z:\...` 验证 | P5-1 | 4% | [ ] |
-| P6-2 | Linux 挂载 `C$`/`D$` | `mkdir` + `mount.cifs port=1445,vers=3.0`；挂载点可读写 | P5-1 | 3% | [ ] |
-| P6-3 | 凭据安全 | libsecret 存储/读取；无 keyring 时交互输入；禁止明文落盘与日志 | P6-2 | 2% | [ ] |
-| P6-4 | 挂载 helper | `scripts/lsw-mount-helper` 最小权限方案（sudoers/polkit，setuid 需审计） | P6-2 | 2% | [ ] |
-| P6-5 | 异常恢复 | 残留挂载检测、失败重挂、`shutdown` 兜底卸载、`MOUNT_FAILED` 映射 | P6-2 | 1% | [ ] |
+| P6-1 | Windows 映射 `Z:` | 宿主 root Samba（`127.0.0.1:445`）共享 `$HOME`；guest 经 `10.0.2.2` 执行 `net use Z:`；`Set-Location Z:\...` 验证 | P5-1 | 4% | [x] |
+| P6-2 | Linux 挂载 `C$`/`D$` | `mkdir` + `mount.cifs port=1445,vers=3.0`；挂载点可读写 | P5-1 | 3% | [x] |
+| P6-3 | 凭据安全 | libsecret 存储/读取；无 keyring 时交互输入；禁止明文落盘与日志 | P6-2 | 2% | [x] |
+| P6-4 | 挂载 helper | `scripts/lsw-mount-helper` 最小权限方案（sudoers/polkit，setuid 需审计） | P6-2 | 2% | [x] |
+| P6-5 | 异常恢复 | 残留挂载检测、失败重挂、`shutdown` 兜底卸载、`MOUNT_FAILED` 映射 | P6-2 | 1% | [x] |
+
+### P6 验收方式（一键）
+
+```bash
+bash scripts/verify-p6.sh
+```
+
+预期：`ctest` 全部通过（≥100）；假 helper / 假 ssh / 假 QEMU 下 `lsw start` 返回 `mounts` 与 `z_drive`，`shutdown` 前调用卸载并清理；残留挂载重挂、keyring/环境凭据、`MountFailed` 映射均有单测覆盖；`clang-format` 与 Doxygen 文件头全部通过。
+
+### P6 真机验收记录
+
+- 2026-10-16：`bash scripts/lsw-p6-real-test.sh` 真机 **30/30 通过，0 失败，0 跳过**；`Z: → \\10.0.2.2\qemu` 可 `Set-Location` 并列出 Linux 家目录；`/mnt/Windows/C` 读写通过。
+- 架构结论与定位过程详见 [`docs/P6-回顾.md`](P6-回顾.md)。
 
 ## P7 · `lsw shell` 桥接（8%）
 

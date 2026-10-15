@@ -9,6 +9,8 @@ component "QMP Client" as QMP
 component "Windows OpenSSH" as WinSSH
 component "PowerShell" as PS
 component "SMB/CIFS" as SMB
+component "lsw-mount-helper\n(sudo/pkexec)" as Helper
+component "libsecret keyring" as Keyring
 component "Linux $HOME" as Home
 
 User --> CLI
@@ -20,6 +22,8 @@ Daemon --> QMP : control\n$RUNTIME/lsw/qmp.sock
 QMP --> QEMU
 Daemon --> WinSSH : ssh -t / exec\n$WINDOWS_USER@127.0.0.1:2222
 WinSSH --> PS
-Daemon --> SMB : mount.cifs
+Daemon --> Keyring : secret-tool 凭据读写
+Daemon --> Helper : mount / unmount\n密码仅 stdin
+Helper --> SMB : mount -t cifs
 SMB --> Home : Z: 映射
 @enduml

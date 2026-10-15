@@ -28,7 +28,7 @@ virtio_iso = ""
 [network]
 ssh_host_port = 2222
 smb_host_port = 1445
-guest_smb_host = "10.0.2.4"
+guest_smb_host = "10.0.2.2"
 guest_smb_share = "qemu"
 
 [filesystem]
@@ -52,7 +52,7 @@ windows_user = "lsw"
 | `vm.virtio_iso` | path | `""` | 用户自备的 virtio-win ISO |
 | `network.ssh_host_port` | int | `2222` | 宿主机 SSH 转发端口 |
 | `network.smb_host_port` | int | `1445` | 宿主机 SMB 转发端口 |
-| `network.guest_smb_host` | string | `10.0.2.4` | QEMU user SMB 网关 |
+| `network.guest_smb_host` | string | `10.0.2.2` | QEMU user-net 宿主网关；guest 通过它访问宿主 root Samba（`127.0.0.1:445`） |
 | `network.guest_smb_share` | string | `qemu` | SMB 共享名 |
 | `filesystem.mount_root` | path | `/mnt/Windows` | Windows 盘挂载根 |
 | `filesystem.linux_home_share` | path | `~` | 共享给 Windows 的 Linux 目录 |

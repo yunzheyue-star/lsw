@@ -81,7 +81,11 @@ TEST_CASE("IPC 错误码映射往返", "[ipc][protocol]") {
         {ErrorCode::kNotImplemented, "NOT_IMPLEMENTED"},
         {ErrorCode::kPathMappingFailed, "PATH_OUTSIDE_HOME"},
         {ErrorCode::kSshFailed, "SSH_FAILED"},
-        {ErrorCode::kIoError, "MOUNT_FAILED"},
+        {ErrorCode::kMountFailed, "MOUNT_FAILED"},
+        {ErrorCode::kUnmountFailed, "UNMOUNT_FAILED"},
+        {ErrorCode::kShareSetupFailed, "SHARE_SETUP_FAILED"},
+        {ErrorCode::kPermissionDenied, "PERMISSION_DENIED"},
+        {ErrorCode::kMissingDependency, "MISSING_DEPENDENCY"},
         {ErrorCode::kQemuError, "QMP_ERROR"},
         {ErrorCode::kInternal, "INTERNAL"},
     };

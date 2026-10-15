@@ -119,6 +119,7 @@ trap cleanup EXIT
 export HOME="$TMP/home"
 export XDG_CONFIG_HOME="$TMP/config" XDG_DATA_HOME="$TMP/data"
 export XDG_STATE_HOME="$TMP/state" XDG_RUNTIME_DIR="$TMP/run"
+export LSW_DISABLE_MOUNTS=1
 mkdir -p "$HOME" "$XDG_RUNTIME_DIR"
 
 SOCKET="$XDG_RUNTIME_DIR/lsw/lswd.sock"

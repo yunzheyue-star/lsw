@@ -16,6 +16,9 @@
 #include <cstring>
 #include <fcntl.h>
 #include <poll.h>
+#include <pthread.h>
+#include <signal.h>
+#include <string_view>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
@@ -140,6 +143,75 @@ struct Capture {
     bool open{true};
 };
 
+/// @brief 判断字节是否为 UTF-8 续字节。
+/// @param byte 待判断字节。
+/// @return 是续字节返回 true。
+bool is_utf8_continuation(unsigned char byte) {
+    return (byte & 0xC0U) == 0x80U;
+}
+
+/// @brief 将任意进程输出清洗为合法 UTF-8（非法字节替换为 U+FFFD）。
+/// @param input 原始字节串。
+/// @return 合法 UTF-8 字符串。
+std::string sanitize_utf8(std::string_view input) {
+    std::string output;
+    output.reserve(input.size());
+    std::size_t index = 0;
+    while (index < input.size()) {
+        const auto byte = static_cast<unsigned char>(input[index]);
+        if (byte < 0x80U) {
+            output.push_back(static_cast<char>(byte));
+            ++index;
+            continue;
+        }
+        std::size_t length = 0;
+        if (byte >= 0xF0U) {
+            length = 4;
+        } else if (byte >= 0xE0U) {
+            length = 3;
+        } else if (byte >= 0xC0U) {
+            length = 2;
+        }
+        bool valid = length > 0 && index + length <= input.size();
+        if (valid) {
+            for (std::size_t offset = 1; offset < length; ++offset) {
+                if (!is_utf8_continuation(
+                        static_cast<unsigned char>(input[index + offset]))) {
+                    valid = false;
+                    break;
+                }
+            }
+        }
+        if (valid) {
+            if (length == 2 && byte < 0xC2U) {
+                valid = false;
+            } else if (length == 3) {
+                const auto second =
+                    static_cast<unsigned char>(input[index + 1]);
+                if ((byte == 0xE0U && second < 0xA0U) ||
+                    (byte == 0xEDU && second >= 0xA0U)) {
+                    valid = false;
+                }
+            } else if (length == 4) {
+                const auto second =
+                    static_cast<unsigned char>(input[index + 1]);
+                if ((byte == 0xF0U && second < 0x90U) || byte > 0xF4U ||
+                    (byte == 0xF4U && second > 0x8FU)) {
+                    valid = false;
+                }
+            }
+        }
+        if (valid) {
+            output.append(input.substr(index, length));
+            index += length;
+        } else {
+            output.append("\xEF\xBF\xBD");
+            ++index;
+        }
+    }
+    return output;
+}
+
 } // namespace
 
 /// @brief 同步运行外部程序并捕获标准输出与标准错误。
@@ -158,6 +230,13 @@ Result<ProcessResult> run_process(const std::vector<std::string> &argv,
     ScopedFd err_write;
     ScopedFd exec_read;
     ScopedFd exec_write;
+    ScopedFd in_read;
+    ScopedFd in_write;
+    if (options.stdin_data.has_value()) {
+        if (auto status = make_pipe(in_read, in_write); !status) {
+            return std::unexpected(status.error());
+        }
+    }
     if (auto status = make_pipe(out_read, out_write); !status) {
         return std::unexpected(status.error());
     }
@@ -176,6 +255,9 @@ Result<ProcessResult> run_process(const std::vector<std::string> &argv,
 
     if (pid == 0) {
         // 子进程：不执行任何 C++ 析构，失败路径一律 _exit。
+        if (in_read.get() >= 0) {
+            (void)::dup2(in_read.get(), STDIN_FILENO);
+        }
         if (options.cwd.has_value() && ::chdir(options.cwd->c_str()) != 0) {
             const int code = errno;
             const ssize_t ignored =
@@ -200,7 +282,37 @@ Result<ProcessResult> run_process(const std::vector<std::string> &argv,
         ::_exit(127);
     }
 
-    // 父进程：关闭写端，读取子进程 exec/chdir 结果（EOF = exec 成功）。
+    // 父进程：写入 stdin（若有），再关闭写端，等待子进程 exec/chdir 结果。
+    if (options.stdin_data.has_value()) {
+        in_read.reset();
+        sigset_t pipe_set{};
+        sigset_t old_set{};
+        ::sigemptyset(&pipe_set);
+        ::sigaddset(&pipe_set, SIGPIPE);
+        const bool blocked =
+            ::pthread_sigmask(SIG_BLOCK, &pipe_set, &old_set) == 0;
+        const auto &data = *options.stdin_data;
+        std::size_t written = 0;
+        while (written < data.size()) {
+            const ssize_t count = ::write(in_write.get(), data.data() + written,
+                                          data.size() - written);
+            if (count < 0 && errno == EINTR) {
+                continue;
+            }
+            if (count <= 0) {
+                break;
+            }
+            written += static_cast<std::size_t>(count);
+        }
+        if (blocked) {
+            timespec zero{0, 0};
+            siginfo_t pending{};
+            while (::sigtimedwait(&pipe_set, &pending, &zero) > 0) {
+            }
+            ::pthread_sigmask(SIG_SETMASK, &old_set, nullptr);
+        }
+        in_write.reset();
+    }
     out_write.reset();
     err_write.reset();
     // 关键：关闭父进程持有的写端，否则子进程 exec 成功后 read 等不到 EOF。
@@ -332,8 +444,8 @@ Result<ProcessResult> run_process(const std::vector<std::string> &argv,
 
     ProcessResult result;
     result.exit_code = decode_status(status);
-    result.stdout_data = std::move(stdout_data);
-    result.stderr_data = std::move(stderr_data);
+    result.stdout_data = sanitize_utf8(stdout_data);
+    result.stderr_data = sanitize_utf8(stderr_data);
     return result;
 }
 

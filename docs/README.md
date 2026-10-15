@@ -9,6 +9,7 @@ docs/
 ├── architecture.md
 ├── CHANGELOG.md
 ├── TASKS.md
+├── P6-回顾.md
 ├── interfaces/
 │   ├── cli.md
 │   ├── core.md
@@ -46,3 +47,9 @@ docs/
 - [ ] `docs/TASKS.md` 状态已更新
 - [ ] 构建通过
 - [ ] 测试通过
+## 开发规范
+
+- 语言标准：C++26；错误处理使用 `std::expected` / `Result<T>`，RAII 管理资源。
+- 提交前必须通过 `clang-format --style=file --dry-run --Werror`（`include/`、`src/`、`tests/` 下全部 `.hpp` / `.cpp`）。
+- 每个 C++ 文件必须以 Doxygen 文件头开头（`@file` / `@brief` / `@details` / `@author` / `@date`），公共接口使用 Doxygen 注释。
+- 每次任务：构建 → `ctest` → 更新 `docs/interfaces/*.md` → 更新 `docs/diagrams/*.puml` → 更新 `docs/CHANGELOG.md`。

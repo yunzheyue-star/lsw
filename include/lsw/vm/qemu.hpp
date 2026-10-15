@@ -11,6 +11,7 @@
 #pragma once
 
 #include <chrono>
+#include <cstdint>
 #include <filesystem>
 #include <optional>
 #include <string>
@@ -38,7 +39,7 @@ struct QemuVmOptions {
     std::filesystem::path ovmf_vars; ///< 空 = $DATA/vm/OVMF_VARS.fd
     std::filesystem::path
         disk_image; ///< 空 = config.vm.disk 或 $DATA/vm/disk.qcow2
-    std::filesystem::path home_dir; ///< 空 = 当前 $HOME（QEMU user SMB）
+    std::filesystem::path home_dir; ///< 空 = 当前 $HOME
     bool enable_kvm{true};          ///< false → accel=tcg（无 KVM 环境/测试）
     bool enable_firmware{
         false}; ///< false = SeaBIOS（BIOS，Win10 推荐）；true = OVMF/UEFI

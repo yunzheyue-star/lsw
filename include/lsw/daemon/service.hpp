@@ -21,6 +21,9 @@
 
 #include <lsw/core/config.hpp>
 #include <lsw/core/error.hpp>
+#include <lsw/fs/host_smb.hpp>
+#include <lsw/fs/mount.hpp>
+#include <lsw/fs/z_mapping.hpp>
 #include <lsw/util/paths.hpp>
 #include <lsw/vm/qemu.hpp>
 
@@ -29,7 +32,13 @@ namespace lsw::daemon {
 /// @brief lswd 服务运行参数；支持通过环境变量覆盖，便于测试与特殊环境。
 struct DaemonServiceOptions {
     vm::QemuVmOptions qemu_options;
+    winfs::MountOptions mount_options;
+    winfs::ZMappingOptions z_mapping_options;
+    winfs::HostSmbOptions host_smb_options;
+    bool enable_host_smb{true};
     bool wait_for_ssh{true};
+    bool enable_mounts{true};
+    bool enable_z_mapping{true};
     std::chrono::milliseconds ssh_ready_timeout{120000};
     std::chrono::milliseconds ssh_poll_interval{250};
     bool try_ssh_shutdown{true};
@@ -68,8 +77,9 @@ class DaemonService {
 
   private:
     /// @brief 处理 start 命令。
+    /// @param args 命令参数（可含一次性 password，禁止记录日志）。
     /// @return 命令结果 JSON。
-    [[nodiscard]] Result<nlohmann::json> on_start();
+    [[nodiscard]] Result<nlohmann::json> on_start(const nlohmann::json &args);
     /// @brief 处理 shutdown 命令。
     /// @return 命令结果 JSON。
     [[nodiscard]] Result<nlohmann::json> on_shutdown();
@@ -77,11 +87,13 @@ class DaemonService {
     /// @return 命令结果 JSON。
     [[nodiscard]] Result<nlohmann::json> on_status();
     /// @brief 处理 mount 命令。
+    /// @param args 命令参数（可含一次性 password，禁止记录日志）。
     /// @return 命令结果 JSON。
-    [[nodiscard]] Result<nlohmann::json> on_mount();
+    [[nodiscard]] Result<nlohmann::json> on_mount(const nlohmann::json &args);
     /// @brief 处理 unmount 命令。
+    /// @param args 命令参数（保留扩展）。
     /// @return 命令结果 JSON。
-    [[nodiscard]] Result<nlohmann::json> on_unmount();
+    [[nodiscard]] Result<nlohmann::json> on_unmount(const nlohmann::json &args);
 
     /// @brief 尝试通过 SSH 关闭虚拟机。
     void try_ssh_shutdown();
@@ -93,6 +105,7 @@ class DaemonService {
     XdgPaths paths_;
     DaemonServiceOptions options_;
     std::optional<vm::QemuVm> vm_;
+    std::optional<winfs::HostSmbManager> smb_manager_;
     std::vector<std::string> mounts_;
     std::atomic<bool> shutdown_requested_{false};
 };

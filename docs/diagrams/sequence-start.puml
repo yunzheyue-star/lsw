@@ -1,5 +1,5 @@
 @startuml
-title lsw start 时序（P5 已实现）
+title lsw start 时序（P5/P6 已实现）
 actor User
 participant "lsw" as CLI
 participant "lswd / DaemonService" as Daemon
@@ -21,11 +21,14 @@ else 未运行
   QEMU -> QMP : greeting
   QMP -> QEMU : qmp_capabilities（握手）
   VM -> QMP : query-status → running
-  Daemon -> Daemon : wait_for_tcp_port(127.0.0.1:2222, 120s)
-  Daemon -> WinSSH : TCP 端口就绪（P7 建立 SSH 会话）
-  Daemon -> CIFS : [P6] 挂载 //127.0.0.1/C$、/D$ 到 /mnt/Windows/{C,D}
-  Daemon -> WinSSH : [P6] 确保 net use Z: \\10.0.2.4\qemu
-  Daemon --> CLI : { pid, vm_status, mounts }
+  Daemon -> Daemon : wait_for_ssh_banner(127.0.0.1:2222, 120s)
+  Daemon -> WinSSH : 读取到 SSH- banner（sshd 就绪）
+  Daemon -> Daemon : 解析凭据（keyring / 一次性 password / env）
+  Daemon -> Helper : sudo -n smb_start $HOME qemu <linux-user>（root smbd:445）
+  Daemon -> WinSSH : powershell net use Z: \\10.0.2.2\qemu /persistent:yes
+  Daemon -> Helper : sudo -n lsw-mount-helper mount C/D（密码走 stdin）
+  Helper -> CIFS : mount -t cifs //127.0.0.1/C$、/D$ 到 /mnt/Windows/{C,D}
+  Daemon --> CLI : { pid, vm_status, mounts, z_drive }
 end
 CLI --> User : 启动完成
 @enduml

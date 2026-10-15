@@ -9,17 +9,22 @@
  */
 
 #include <chrono>
+#include <cstdlib>
 #include <filesystem>
 #include <iostream>
+#include <optional>
 #include <string>
 #include <system_error>
+#include <termios.h>
 #include <thread>
+#include <unistd.h>
 
 #include <CLI/CLI.hpp>
 
 #include <lsw/core/config.hpp>
 #include <lsw/core/error.hpp>
 #include <lsw/core/process.hpp>
+#include <lsw/fs/credentials.hpp>
 #include <lsw/ipc/client.hpp>
 #include <lsw/util/paths.hpp>
 #include <lsw/vm/install.hpp>
@@ -97,11 +102,77 @@ lsw::Status ensure_daemon(const lsw::XdgPaths &paths) {
                      "lswd 启动超时，请查看 " + log_file.string());
 }
 
+/// @brief 读取隐藏输入的密码（仅 TTY，密码不落盘、不进 argv）。
+/// @param prompt 提示文本。
+/// @return 读取到的非空密码；非 TTY 或用户空输入时返回 nullopt。
+std::optional<std::string> prompt_password(const std::string &prompt) {
+    if (::isatty(STDIN_FILENO) == 0) {
+        return std::nullopt;
+    }
+    termios original{};
+    if (::tcgetattr(STDIN_FILENO, &original) != 0) {
+        return std::nullopt;
+    }
+    termios quiet = original;
+    quiet.c_lflag &= ~static_cast<tcflag_t>(ECHO);
+    if (::tcsetattr(STDIN_FILENO, TCSAFLUSH, &quiet) != 0) {
+        return std::nullopt;
+    }
+    std::cout << prompt << std::flush;
+    std::string password;
+    std::getline(std::cin, password);
+    ::tcsetattr(STDIN_FILENO, TCSAFLUSH, &original);
+    std::cout << "\n";
+    if (password.empty()) {
+        return std::nullopt;
+    }
+    return password;
+}
+
+/// @brief 为 start/mount 准备凭据参数：环境变量 > 交互输入 > keyring 留空。
+/// @param config 全局配置。
+/// @param save_password 是否把交互输入保存到 keyring。
+/// @return 传给 lswd 的参数 JSON；密码字段只存在于内存与 Unix socket。
+nlohmann::json credential_args(const lsw::Config &config, bool save_password) {
+    nlohmann::json args = nlohmann::json::object();
+    if (std::getenv("LSW_WINDOWS_PASSWORD") != nullptr) {
+        return args;
+    }
+    const char *disable_mounts = std::getenv("LSW_DISABLE_MOUNTS");
+    const char *disable_z = std::getenv("LSW_DISABLE_Z_MAPPING");
+    if (disable_mounts != nullptr && std::string(disable_mounts) == "1" &&
+        disable_z != nullptr && std::string(disable_z) == "1") {
+        return args;
+    }
+    lsw::winfs::CredentialStore store;
+    auto stored = store.lookup(config.user.windows_user);
+    if (stored && stored->has_value()) {
+        return args;
+    }
+    auto password =
+        prompt_password("请输入 Windows 用户 " + config.user.windows_user +
+                        " 的密码（仅本次使用，不会明文落盘）: ");
+    if (!password.has_value()) {
+        return args;
+    }
+    args["password"] = *password;
+    if (save_password && store.available()) {
+        if (auto saved = store.store({config.user.windows_user, *password});
+            !saved) {
+            std::cerr << "lsw: 保存到 keyring 失败: " << saved.error().message
+                      << "\n";
+        }
+    }
+    return args;
+}
+
 /// @brief 通过 IPC 向 lswd 发送命令并输出响应。
 /// @param paths 当前用户 XDG 路径集合。
 /// @param command 要发送给 lswd 的命令名称。
+/// @param args 命令参数（可含一次性密码，禁止记录日志）。
 /// @return 进程退出码，0 表示命令执行成功。
-int run_daemon_command(const lsw::XdgPaths &paths, const std::string &command) {
+int run_daemon_command(const lsw::XdgPaths &paths, const std::string &command,
+                       const nlohmann::json &args = nlohmann::json::object()) {
     lsw::ipc::ClientOptions options;
     options.socket_path = paths.runtime_dir / "lswd.sock";
     options.connect_timeout = std::chrono::seconds(1);
@@ -109,7 +180,7 @@ int run_daemon_command(const lsw::XdgPaths &paths, const std::string &command) {
                                             : std::chrono::seconds(60);
     lsw::ipc::Client client(options);
 
-    auto result = client.call(command);
+    auto result = client.call(command, args);
     if (!result) {
         if (command == "shutdown" &&
             result.error().code == lsw::ErrorCode::kDaemonUnavailable) {
@@ -135,6 +206,7 @@ int main(int argc, char **argv) {
 
     bool install_flag = false;
     bool allow_existing_disk = false;
+    bool save_password = false;
     std::string iso;
     std::string virtio_iso;
     std::string disk;
@@ -149,11 +221,17 @@ int main(int argc, char **argv) {
         ->check(CLI::IsMember({"bios", "ovmf"}));
     app.add_flag("--allow-existing-disk", allow_existing_disk,
                  "允许复用 LSW 数据目录之外已存在的磁盘（危险）");
+    app.add_flag("--save-password", save_password,
+                 "把交互输入的 Windows 密码保存到系统 keyring");
 
     auto *start_command =
         app.add_subcommand("start", "启动 Windows 虚拟机服务");
     auto *shutdown_command =
         app.add_subcommand("shutdown", "关闭 Windows 虚拟机服务");
+    auto *mount_command =
+        app.add_subcommand("mount", "挂载 Windows C$/D$ 到 /mnt/Windows");
+    auto *unmount_command =
+        app.add_subcommand("unmount", "卸载 /mnt/Windows 下的 Windows 共享");
 
     try {
         app.parse(argc, argv);
@@ -199,10 +277,17 @@ int main(int argc, char **argv) {
         return 0;
     }
 
-    if (start_command->parsed() || shutdown_command->parsed()) {
+    if (start_command->parsed() || shutdown_command->parsed() ||
+        mount_command->parsed() || unmount_command->parsed()) {
         auto paths = lsw::resolve_paths(lsw::PathEnvironment::from_process());
         if (!paths) {
             return report_error(paths.error());
+        }
+        lsw::Config config;
+        if (auto loaded = lsw::load_config(paths->config_file, true); loaded) {
+            config = *loaded;
+        } else {
+            return report_error(loaded.error());
         }
         if (start_command->parsed()) {
             std::cout
@@ -212,7 +297,28 @@ int main(int argc, char **argv) {
             if (auto status = ensure_daemon(*paths); !status) {
                 return report_error(status.error());
             }
-            return run_daemon_command(*paths, "start");
+            nlohmann::json start_args = nlohmann::json::object();
+            const char *disable_mounts = std::getenv("LSW_DISABLE_MOUNTS");
+            if (disable_mounts == nullptr ||
+                std::string(disable_mounts) != "1") {
+                start_args = credential_args(config, save_password);
+            }
+            return run_daemon_command(*paths, "start", start_args);
+        }
+        if (mount_command->parsed()) {
+            std::cout << "正在挂载 Windows 共享盘...\n" << std::flush;
+            if (auto status = ensure_daemon(*paths); !status) {
+                return report_error(status.error());
+            }
+            return run_daemon_command(*paths, "mount",
+                                      credential_args(config, save_password));
+        }
+        if (unmount_command->parsed()) {
+            std::cout << "正在卸载 Windows 共享盘...\n" << std::flush;
+            if (auto status = ensure_daemon(*paths); !status) {
+                return report_error(status.error());
+            }
+            return run_daemon_command(*paths, "unmount");
         }
         std::cout << "正在关闭 Windows 虚拟机（优先 SSH，QMP/信号兜底）...\n"
                   << std::flush;
@@ -220,7 +326,8 @@ int main(int argc, char **argv) {
     }
 
     std::cerr << "lsw: shell 功能将在 P7 实现；当前可用命令：\n"
-              << "  lsw --install   lsw start   lsw shutdown\n";
+              << "  lsw --install   lsw start   lsw shutdown   lsw mount   "
+                 "lsw unmount\n";
     std::cout << app.help();
     return lsw::to_exit_code(lsw::ErrorCode::kNotImplemented);
 }

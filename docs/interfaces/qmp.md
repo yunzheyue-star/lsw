@@ -107,7 +107,7 @@ public:
 | 公共 | `-name <vm.name>`、`-smp`、`-m`、`-drive file=$DATA/vm/disk.qcow2,if=virtio,format=qcow2` |
 | 加速 | KVM：`-enable-kvm -machine q35,accel=kvm -cpu host`；TCG：`-machine q35,accel=tcg -cpu max` |
 | 固件 | 默认 SeaBIOS（BIOS）；`--firmware ovmf` / `enable_firmware=true` 时使用 `-drive if=pflash,...` 加载 OVMF |
-| 网络 | `-netdev user,id=net0,hostfwd=tcp:127.0.0.1:2222-:22,hostfwd=tcp:127.0.0.1:1445-:445`；检测到 `smbd` 时追加 `smb=$HOME`（QEMU user SMB 需要 Samba），否则跳过并警告 |
+| 网络 | `-netdev user,id=net0,hostfwd=tcp:127.0.0.1:2222-:22,hostfwd=tcp:127.0.0.1:1445-:445`；不使用 QEMU user SMB。`Z:` 由宿主 root Samba（`127.0.0.1:445`）+ guest 侧 `10.0.2.2` 网关提供 |
 | QMP / QGA | `-qmp unix:$RUNTIME/lsw/qmp.sock,server=on,wait=off`、`-chardev socket,path=$RUNTIME/lsw/qga.sock,...` |
 | 运行模式 | `-display none` |
 | 安装模式 | Windows ISO + virtio-win ISO（`media=cdrom,readonly=on`）、`-display gtk` |

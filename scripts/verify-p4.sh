@@ -193,7 +193,7 @@ check_grep "docs/interfaces/cli.md" "P4" "cli.md 记录 --install P4 行为"
 check_grep "docs/interfaces/qmp.md" "Installer" "qmp.md 记录 Installer"
 check_grep "docs/TASKS.md" "P4 验收方式" "TASKS.md 含 P4 验收方式"
 check_grep "docs/CHANGELOG.md" "Installer" "CHANGELOG 记录 Installer"
-check_grep "agent.md" "clang-format" "agent.md 写入格式化规范"
+check_grep "docs/README.md" "clang-format" "公开文档写入格式化规范"
 
 # ---------- 汇总 ----------
 printf '\n========================================\n'

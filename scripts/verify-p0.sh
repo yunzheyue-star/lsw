@@ -135,20 +135,20 @@ for f in docs/diagrams/*.puml; do
 done
 if [ "$PUML_BAD" -eq 0 ]; then ok "全部 PlantUML 图结构完整（@startuml/@enduml）"; else ng "$PUML_BAD 张图结构不完整"; fi
 
-if grep -q 'config.user.windows_user' SKILL.md && grep -q 'config.user.windows_user' docs/interfaces/config.md; then
+if grep -q 'config.user.windows_user' docs/interfaces/config.md && grep -q 'config.user.windows_user' docs/interfaces/cli.md; then
   ok "SSH 用户名统一为 config.user.windows_user"
 else
   ng "SSH 用户名说明未统一"
 fi
-if ! grep -q '\$STATE/qmp.sock' SKILL.md; then
+if ! grep -rq '\$STATE/qmp.sock' docs/; then
   ok "socket 路径统一到 \$RUNTIME（无 \$STATE/qmp.sock）"
 else
-  ng "SKILL.md 仍存在 \$STATE/qmp.sock"
+  ng "公开文档仍存在 \$STATE/qmp.sock"
 fi
-if ! grep -q 'C++20' agent.md; then
-  ok "agent.md 已统一为 C++26"
+if grep -q 'C++26' docs/README.md && ! grep -q 'C++20' docs/README.md; then
+  ok "公开文档已统一为 C++26"
 else
-  ng "agent.md 仍残留 C++20"
+  ng "公开文档 C++ 标准描述不一致"
 fi
 
 # ---------- 汇总 ----------

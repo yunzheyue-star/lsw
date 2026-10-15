@@ -1,0 +1,190 @@
+#!/usr/bin/env bash
+#
+# lsw-mount-helper - LSW 最小权限 CIFS 挂载 helper。
+#
+# 用途：
+#   由 lsw/lswd 通过 sudo -n 或 pkexec 调用，在 /mnt/Windows 下挂载
+#   Windows C$/D$，避免给整个 lswd 提权。密码只从 stdin 读取，不进入
+#   argv、不写入日志；临时凭据文件由 trap 删除。
+#
+# 用法：
+#   lsw-mount-helper mount <盘符> <CIFS源> <挂载点> <端口> <用户名> <协议版本>
+#       密码通过 stdin 传入（第一行）。
+#   lsw-mount-helper unmount <挂载点>
+#
+# 返回码：
+#   0 成功；2 参数/权限校验失败；其余为 mount/umount 原始错误码。
+set -euo pipefail
+
+# 固定 PATH，避免被调用者环境污染。
+export PATH=/usr/sbin:/usr/bin:/sbin:/bin
+
+usage() {
+    echo "用法: $0 mount <盘符> <源> <挂载点> <端口> <用户名> <版本>" >&2
+    echo "      $0 unmount <挂载点>" >&2
+    echo "      $0 smb_start <共享目录> <共享名> <Linux用户>" >&2
+    echo "      $0 smb_stop" >&2
+}
+
+case "${1:-}" in
+mount)
+    if [ "$#" -ne 7 ]; then
+        usage
+        exit 2
+    fi
+    letter="$2"
+    source="$3"
+    mountpoint="$4"
+    port="$5"
+    username="$6"
+    version="$7"
+
+    if ! [[ "$letter" =~ ^[A-Z]$ ]]; then
+        echo "lsw-mount-helper: 非法盘符: $letter" >&2
+        exit 2
+    fi
+    if ! [[ "$port" =~ ^[0-9]+$ ]]; then
+        echo "lsw-mount-helper: 非法端口: $port" >&2
+        exit 2
+    fi
+    if [[ "$mountpoint" != /mnt/Windows/* ]]; then
+        echo "lsw-mount-helper: 挂载点必须位于 /mnt/Windows 下: $mountpoint" >&2
+        exit 2
+    fi
+    if [[ "$source" != //127.0.0.1/* ]]; then
+        echo "lsw-mount-helper: 只允许 127.0.0.1 的 CIFS 源: $source" >&2
+        exit 2
+    fi
+
+    # 密码只从 stdin 读取一次；之后立即从 shell 变量与临时文件中清除。
+    IFS= read -r password || true
+    if [ -z "${password:-}" ]; then
+        echo "lsw-mount-helper: 需要通过 stdin 提供密码" >&2
+        exit 2
+    fi
+
+    umask 077
+    credentials_file="$(mktemp "${TMPDIR:-/tmp}/lsw-cifs.XXXXXX")"
+    trap 'rm -f "$credentials_file"' EXIT
+    printf 'username=%s\npassword=%s\n' "$username" "$password" \
+        > "$credentials_file"
+    unset password
+
+    install -d -m 0755 "$mountpoint"
+    uid="${SUDO_UID:-${PKEXEC_UID:-$(id -u)}}"
+    gid="${SUDO_GID:-$(id -g)}"
+
+    mount -t cifs "$source" "$mountpoint" \
+        -o "credentials=$credentials_file,port=$port,vers=$version,uid=$uid,gid=$gid,iocharset=utf8"
+    ;;
+unmount)
+    if [ "$#" -ne 2 ]; then
+        usage
+        exit 2
+    fi
+    mountpoint="$2"
+    if [[ "$mountpoint" != /mnt/Windows/* ]]; then
+        echo "lsw-mount-helper: 挂载点必须位于 /mnt/Windows 下: $mountpoint" >&2
+        exit 2
+    fi
+    umount "$mountpoint"
+    ;;
+smb_start)
+    if [ "$#" -ne 4 ]; then
+        usage
+        exit 2
+    fi
+    home_dir="$2"
+    share_name="$3"
+    linux_user="$4"
+    if [ "$(id -u)" -ne 0 ]; then
+        echo "lsw-mount-helper: smb_start 需要 root（请通过 sudo/pkexec 调用）" >&2
+        exit 2
+    fi
+    if [[ "$home_dir" != /* || ! -d "$home_dir" ]]; then
+        echo "lsw-mount-helper: 非法共享目录: $home_dir" >&2
+        exit 2
+    fi
+    if ! [[ "$share_name" =~ ^[A-Za-z0-9_.-]+$ ]]; then
+        echo "lsw-mount-helper: 非法共享名: $share_name" >&2
+        exit 2
+    fi
+    if ! id "$linux_user" >/dev/null 2>&1; then
+        echo "lsw-mount-helper: 未知用户: $linux_user" >&2
+        exit 2
+    fi
+    smb_dir=/run/lsw-smb
+    install -d -m 0700 "$smb_dir" "$smb_dir/ncalrpc"
+    # 幂等：先停掉旧实例，避免端口占用。
+    if [ -f "$smb_dir/smbd.pid" ]; then
+        kill "$(cat "$smb_dir/smbd.pid")" 2>/dev/null || true
+        rm -f "$smb_dir/smbd.pid"
+    fi
+    cat > "$smb_dir/smb.conf" <<EOF
+[global]
+smb ports = 445
+interfaces = 127.0.0.1
+bind interfaces only = yes
+private dir = $smb_dir
+lock directory = $smb_dir
+state directory = $smb_dir
+cache directory = $smb_dir
+pid directory = $smb_dir
+ncalrpc dir = $smb_dir/ncalrpc
+log file = $smb_dir/log.smbd
+map to guest = Bad User
+security = user
+load printers = no
+printing = bsd
+disable spoolss = yes
+usershare max shares = 0
+server min protocol = SMB2
+[$share_name]
+path = $home_dir
+read only = no
+guest ok = yes
+force user = $linux_user
+EOF
+    chmod 0600 "$smb_dir/smb.conf"
+    smbd_bin="$(command -v smbd || echo /usr/bin/smbd)"
+    if [ ! -x "$smbd_bin" ]; then
+        echo "lsw-mount-helper: 找不到 smbd；请安装 Samba" >&2
+        exit 2
+    fi
+    "$smbd_bin" -s "$smb_dir/smb.conf" -l "$smb_dir" -D
+    for _ in $(seq 1 50); do
+        if ss -ltn 2>/dev/null | grep -q "127.0.0.1:445 "; then
+            exit 0
+        fi
+        sleep 0.1
+    done
+    echo "lsw-mount-helper: smbd 未能在 127.0.0.1:445 监听" >&2
+    tail -20 "$smb_dir/log.smbd" 2>/dev/null >&2 || true
+    exit 1
+    ;;
+smb_stop)
+    if [ "$#" -ne 1 ]; then
+        usage
+        exit 2
+    fi
+    smb_dir=/run/lsw-smb
+    if [ -f "$smb_dir/smbd.pid" ]; then
+        pid="$(cat "$smb_dir/smbd.pid" 2>/dev/null || true)"
+        if [ -n "$pid" ]; then
+            kill "$pid" 2>/dev/null || true
+            for _ in $(seq 1 30); do
+                kill -0 "$pid" 2>/dev/null || break
+                sleep 0.1
+            done
+            kill -9 "$pid" 2>/dev/null || true
+        fi
+    fi
+    pkill -f "$smb_dir/smb.conf" 2>/dev/null || true
+    rm -rf "$smb_dir"
+    exit 0
+    ;;
+*)
+    usage
+    exit 2
+    ;;
+esac

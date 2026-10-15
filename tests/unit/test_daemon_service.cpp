@@ -70,6 +70,11 @@ struct Fixture {
         options.qemu_options.shutdown_timeout = std::chrono::seconds(2);
         options.wait_for_ssh = false;
         options.try_ssh_shutdown = false;
+        // 生命周期测试不依赖真实 keyring/helper，文件系统集成见
+        // test_daemon_fs.cpp。
+        options.enable_host_smb = false;
+        options.enable_mounts = false;
+        options.enable_z_mapping = false;
         return options;
     }
 };
@@ -134,23 +139,6 @@ TEST_CASE("DaemonService shutdown 幂等并触发退出", "[daemon]") {
     const auto status = service.handle("status");
     REQUIRE(status.has_value());
     CHECK((*status)["vm_status"] == "stopped");
-}
-
-TEST_CASE("DaemonService mount/unmount 幂等", "[daemon]") {
-    Fixture fixture;
-    DaemonService service(fixture.config, fixture.paths, fixture.options());
-
-    const auto mount_first = service.handle("mount");
-    REQUIRE(mount_first.has_value());
-    CHECK((*mount_first)["mounts"].size() == 2);
-
-    const auto mount_second = service.handle("mount");
-    REQUIRE(mount_second.has_value());
-    CHECK((*mount_second)["mounts"].size() == 2);
-
-    const auto unmount = service.handle("unmount");
-    REQUIRE(unmount.has_value());
-    CHECK((*unmount)["mounts"].empty());
 }
 
 TEST_CASE("DaemonService 未实现命令与未知命令", "[daemon]") {

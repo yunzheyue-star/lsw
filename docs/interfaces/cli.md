@@ -12,7 +12,7 @@
 | `5` | 路径映射失败（目录不在 `$HOME` 下等） |
 | `6` | SSH 执行失败（守护进程未启动、端口 2222 不可用、认证失败） |
 | `7` | 被调用程序返回非零 |
-| `8` | QEMU 错误 |
+| `8` | QEMU / 文件系统错误（QEMU、CIFS 挂载、`Z:` 映射） |
 
 ## 命令
 
@@ -38,19 +38,26 @@
 1. 依赖检查：`/dev/kvm`、`qemu-system-x86_64`、`qemu-img`、`OVMF_CODE.fd`、`OVMF_VARS.fd` 模板、可选 `swtpm`；缺失时按发行版列出修复建议（Arch：`sudo pacman -S edk2-ovmf`；Debian/Ubuntu：`sudo apt install ovmf`；Fedora：`sudo dnf install edk2-ovmf`）。
 2. ISO 输入：优先使用 `--iso` / `--virtio-iso`；未提供且为交互终端时提示输入；非 TTY 环境必须显式传参。只做存在性、可读性、`.iso` 扩展名校验，**不下载、不内置**。
 3. 存储准备：`qemu-img create -f qcow2` 创建 `$DATA/vm/disk.qcow2`；复制 OVMF VARS 模板到 `$DATA/vm/OVMF_VARS.fd`；重复执行不覆盖已有文件。
-4. 启动安装模式：`QemuVm::start_install()`（`-display gtk` + Windows ISO + virtio-win ISO + OVMF pflash），等待用户完成安装并关闭 QEMU。未安装 Samba（`smbd`）时跳过 `smb=$HOME` 并警告，安装仍可继续，但 Windows 内 `Z:` 共享将在安装 Samba 后才可用。
+4. 启动安装模式：`QemuVm::start_install()`（`-display gtk` + Windows ISO + virtio-win ISO + OVMF pflash），等待用户完成安装并关闭 QEMU。安装模式只负责装系统，`Z:` 共享在运行模式由宿主 root Samba（`127.0.0.1:445`）提供。
 5. 安装后输出 `scripts/post-install.ps1` 指引：检查 OpenSSH Server、QEMU Guest Agent、SMB、`Z:` 映射。
 
 退出码：`0` 成功、`2` 参数/ISO 错误、`3` 依赖缺失、`8` QEMU 异常退出。
 
 ### `lsw start`
 
-启动流程（P5 已实现）：`lswd` 未运行时自动拉起 → 通过 IPC 调用 `start` → `lswd` 内 `QemuVm` 以运行模式启动 QEMU（`-display none`）→ 等待 `127.0.0.1:2222` 就绪（默认 120s）→ 返回 `{pid, vm_status:"running"}`。
+启动流程（P5/P6 已实现）：`lswd` 未运行时自动拉起 → 通过 IPC 调用 `start` → `QemuVm` 以运行模式启动（`-display none`）→ 等待真实 SSH banner（默认 120s）→ 启动 host Samba（`127.0.0.1:445`，guest 经 `10.0.2.2` 访问）→ 挂载 `//127.0.0.1/C$`、`//127.0.0.1/D$` 到 `/mnt/Windows/{C,D}` → 返回 `{pid, vm_status:"running", mounts:[...], z_drive:"Z:"}`。`Z:` 映射按登录会话隔离，由真正使用它的 SSH 会话（`lsw shell`/P6 验收）在会话内执行。
 
-- 幂等：已在运行且端口就绪时直接成功；并发 `start` 由互斥锁串行化。
-- 退出码：`0`、`6`（等待 SSH 超时）、`8`（QEMU 错误）。
+- 幂等：已在运行且挂载就绪时直接成功；并发 `start` 由互斥锁串行化。
+- 凭据：优先 keyring（`secret-tool`）；TTY 中隐藏回显提示输入密码，密码仅经 IPC 内存传递；`--save-password` 可写入 keyring；自动化可用 `LSW_WINDOWS_PASSWORD`（仅本次环境）。
+- 退出码：`0`、`3`（helper/secret-tool/ssh 缺失）、`6`（等待 SSH 超时）、`8`（QEMU 或 CIFS/`Z:` 失败）。
 - 启动期间会输出等待提示；默认 120s 内必须读到 Windows SSH banner（`LSW_SSH_READY_TIMEOUT_MS` 可调），仅 hostfwd 端口被监听不算就绪，未装/未启动 sshd 会超时返回 6。
-- 说明：CIFS 挂载与 `Z:` 映射属于 P6，SSH 交互式 shell 属于 P7。
+- `LSW_DISABLE_MOUNTS=1` / `LSW_DISABLE_Z_MAPPING=1` 可分别跳过文件系统步骤（测试/无权限环境）。
+
+### `lsw mount` / `lsw unmount`
+
+- `lsw mount`：确保 Windows `C$`/`D$` 挂载到 `filesystem.mount_root`（默认 `/mnt/Windows`），幂等；需要绑定的凭据与 helper 权限，失败返回 `8`。
+- `lsw unmount`：卸载 `/mnt/Windows` 下全部 CIFS 挂载点，幂等。
+- 退出码：`0`、`3`、`8`。
 
 ### `lsw` / `lsw shell`
 
@@ -84,7 +91,7 @@
 
 - 幂等：`lswd` 未运行或 QEMU 已停止时返回成功。
 - 默认给 guest 15 秒优雅关机窗口（`LSW_SHUTDOWN_TIMEOUT_MS` 可调），超时后 SIGTERM → SIGKILL。
-- 挂载点卸载在 P6 接入 CIFS 后生效。
+- P6 起先卸载 `/mnt/Windows/{C,D}`，再关闭 Windows；卸载失败只记录 warning，不阻塞关机。
 
 ## 变更记录
 
@@ -92,3 +99,4 @@
 | --- | --- |
 | 未发布 | 补全全局退出码、`lsw shell` 目录映射规则与 SSH 用户名说明 |
 | 未发布 | P5 实现 `lsw start` / `lsw shutdown` 编排：守护进程拉起、等待 SSH、SSH/QMP 关机与资源清理 |
+| 未发布 | P6 实现 `lsw mount` / `lsw unmount` 与 start/shutdown 文件系统集成：keyring 凭据、CIFS 挂载/卸载/重挂、Windows `Z:` 映射 |

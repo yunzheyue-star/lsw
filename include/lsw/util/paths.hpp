@@ -13,6 +13,7 @@
 #include <filesystem>
 #include <optional>
 #include <string>
+#include <string_view>
 
 #include <lsw/core/error.hpp>
 
@@ -53,6 +54,11 @@ struct XdgPaths {
 /// @param paths 待创建的路径集合。
 /// @return 创建成功返回成功状态，失败返回错误。
 [[nodiscard]] Status ensure_directories(const XdgPaths &paths);
+
+/// @brief 在 PATH 中查找可执行文件。
+/// @param name 可执行文件名；包含 '/' 时按路径直接检查。
+/// @return 找到的可执行文件路径；找不到时返回空字符串。
+[[nodiscard]] std::string find_executable(std::string_view name);
 
 /// @brief 展开开头的 `~` 与 `~/`；其他路径原样返回。HOME 缺失时返回错误。
 /// @param path 待展开的路径。

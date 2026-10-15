@@ -86,6 +86,39 @@ Status ensure_directories(const XdgPaths &paths) {
     }
 }
 
+/// @brief 在 PATH 中查找可执行文件。
+/// @param name 可执行文件名；包含 '/' 时按路径直接检查。
+/// @return 找到的可执行文件路径；找不到时返回空字符串。
+std::string find_executable(std::string_view name) {
+    const std::string text(name);
+    if (text.empty()) {
+        return {};
+    }
+    if (text.find('/') != std::string::npos) {
+        return ::access(text.c_str(), X_OK) == 0 ? text : std::string{};
+    }
+    const char *path = std::getenv("PATH");
+    if (path == nullptr) {
+        return {};
+    }
+    std::string current;
+    const std::string path_text(path);
+    for (std::size_t index = 0; index <= path_text.size(); ++index) {
+        if (index == path_text.size() || path_text[index] == ':') {
+            if (!current.empty()) {
+                const std::string candidate = current + "/" + text;
+                if (::access(candidate.c_str(), X_OK) == 0) {
+                    return candidate;
+                }
+            }
+            current.clear();
+        } else {
+            current.push_back(path_text[index]);
+        }
+    }
+    return {};
+}
+
 /// @brief 展开路径开头的 ~ 与 ~/；其他路径原样返回。
 /// @param path 待展开的路径。
 /// @param env 提供 HOME 的环境快照。

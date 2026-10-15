@@ -106,6 +106,7 @@ export HOME="$TMP/home" XDG_CONFIG_HOME="$TMP/config" \
 export LSW_QEMU_BINARY="$ROOT/build/tests/lsw_fake_qemu"
 export LSW_QEMU_ENABLE_KVM=0 LSW_QEMU_ENABLE_FIRMWARE=0
 export LSW_WAIT_SSH=0 LSW_TRY_SSH_SHUTDOWN=0
+export LSW_DISABLE_MOUNTS=1 LSW_DISABLE_Z_MAPPING=1
 export LSW_QEMU_DISK="$TMP/disk.qcow2"
 
 SOCKET="$XDG_RUNTIME_DIR/lsw/lswd.sock"

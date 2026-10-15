@@ -328,11 +328,8 @@ Result<std::vector<std::string>> build_qemu_args(const Config &config,
                          std::to_string(config.network.ssh_host_port) +
                          "-:22,hostfwd=tcp:127.0.0.1:" +
                          std::to_string(config.network.smb_host_port) + "-:445";
-    // QEMU user-mode SMB 需要本机 smbd；缺失时跳过，避免 QEMU 启动即退出。
-    const bool smbd_available = !find_executable("smbd").empty();
-    if (!options.home_dir.empty() && smbd_available) {
-        netdev += ",smb=" + options.home_dir.string();
-    }
+    // Z: 由宿主 root Samba（127.0.0.1:445）+ QEMU 网关 10.0.2.2 提供；
+    // 不再使用 QEMU user-mode SMB（SMB1、单会话）。
     args.push_back("-netdev");
     args.push_back(netdev);
     args.push_back("-device");

@@ -31,7 +31,7 @@ struct VmConfig {
 struct NetworkConfig {
     int ssh_host_port{2222};
     int smb_host_port{1445};
-    std::string guest_smb_host{"10.0.2.4"};
+    std::string guest_smb_host{"10.0.2.2"}; ///< QEMU user-net 宿主网关
     std::string guest_smb_share{"qemu"};
 };
 

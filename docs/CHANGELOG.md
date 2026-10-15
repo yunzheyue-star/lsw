@@ -6,6 +6,8 @@
 
 ### 新增
 
+- P6 复盘文档：[`docs/P6-回顾.md`](P6-回顾.md)（QEMU user SMB → host root Samba 的演进、真机 30/30 验收与经验教训）。
+
 - 工程基线：CMake 目标 `lsw`、CTest 冒烟测试 `lsw_smoke`。
 - 目录骨架：`include/lsw/{cli,core,vm,fs,shell,exec,ipc,util}`、`tests/`、`scripts/`、`cmake/`。
 - 文档骨架：`docs/architecture.md`、`docs/interfaces/{qmp,filesystem,config}.md`、`docs/diagrams/sequence-{install,start,exec,shutdown}.puml`。
@@ -33,6 +35,8 @@
 
 ### 变更
 
+- `Z:` 映射改为按登录会话延迟：`lsw start` 只启动 host Samba 并报告 `z_drive`，由第一个实际使用 `Z:` 的 SSH 会话（`lsw shell`/验收/exec）在会话内执行 `net use`，避免 daemon 提前占用 QEMU 网关首次会话导致后续会话 53。
+- `Z:` 数据源从 QEMU user-mode SMB1 改为宿主 root Samba（`127.0.0.1:445`）+ guest `10.0.2.2` 网关：`lswd` 经 helper `smb_start`/`smb_stop` 启停 smbd，SMB2/3 支持多会话，P7 `lsw shell` 可反复映射。
 - C++ 标准统一为 **C++26**（对齐 `PROMPT.md`；同步修订 `agent.md` 中的 C++20 表述）。
 - CMake 最低版本由 3.12 提升到 **3.25**（`CXX_STANDARD 26` 的最低版本要求）。
 - 统一运行路径：套接字/PID 放 `$RUNTIME`（`$XDG_RUNTIME_DIR/lsw`），磁盘与 UEFI 变量放 `$DATA/vm/`，日志与状态放 `$STATE`；清理 `SKILL.md` 中混用 `$STATE` 存放 socket 的示例。
@@ -61,3 +65,8 @@
 - 修复 start 假就绪：QEMU hostfwd 端口被监听不代表 guest sshd 可用；改为必须读取到 `SSH-` banner 才算 Windows OpenSSH 就绪。
 - 修复 QEMU 11 + OVMF 加载 Windows 10 ISO 光驱 EFI 镜像超时导致落到 PXE 的问题：安装/运行默认改用 SeaBIOS（BIOS），安装模式 `-boot order=d` 优先 CD-ROM；新增 `--firmware bios|ovmf`，BIOS 模式不再要求 OVMF。
 - 新增安装磁盘安全护栏：默认拒绝挂载 LSW 数据目录之外已存在的磁盘，需显式 `--allow-existing-disk`，避免覆盖 libvirt 等已有虚拟机。
+- P6 文件系统：新增 `lsw::winfs` credentials/mount/z_mapping/host_smb 模块，start 启动 host Samba 并挂载 C$/D$（`Z:` 延迟到使用会话映射），shutdown 先卸载并停止 host Samba；新增 `lsw mount`/`lsw unmount`、`scripts/lsw-mount-helper` 最小权限 helper（含 `smb_start`/`smb_stop`）、keyring 凭据与 `--save-password`、残留挂载恢复及 `MountFailed`/`ShareSetupFailed` 错误映射。
+- 修复 Windows 远端 `cmd.exe` 解析：`Z:` 映射脚本改用 `powershell -EncodedCommand`（UTF-16LE + Base64），避免 `| Out-Null` 被 cmd 当作管道；`run_process` 对外部输出做 UTF-8 清洗，IPC 响应增加安全编码兜底。
+- 单盘 LSW 兼容：guest 只有 C: 时自动跳过不存在的 D$，`start` 仍成功，挂载列表只包含实际存在的盘。
+- 明确 Windows 盘符映射的会话隔离语义：验收改为在同一个 SSH 会话内 `net use` + `Set-Location Z:\`；`/persistent:yes` 供交互登录恢复，P7 `lsw shell` 会在自身会话内再次确保映射。
+- 明确凭据边界：host Samba 的 `qemu` 共享对 guest 匿名提供 `Z:`，映射不需要 Windows 密码；只有 CIFS 挂载 `C$`/`D$` 才解析 Windows 凭据（keyring / 交互 / 环境变量）。映射前会清理旧的不可用映射。

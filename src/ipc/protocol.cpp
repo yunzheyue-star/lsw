@@ -196,6 +196,16 @@ std::string to_ipc_error_code(ErrorCode code) noexcept {
         return std::string(kSshFailed);
     case ErrorCode::kIoError:
         return std::string(kMountFailed);
+    case ErrorCode::kMountFailed:
+        return std::string(kMountFailed);
+    case ErrorCode::kUnmountFailed:
+        return std::string(kUnmountFailed);
+    case ErrorCode::kShareSetupFailed:
+        return std::string(kShareSetupFailed);
+    case ErrorCode::kPermissionDenied:
+        return std::string(kPermissionDenied);
+    case ErrorCode::kMissingDependency:
+        return std::string(kMissingDependency);
     case ErrorCode::kQemuError:
         return std::string(kQmpError);
     case ErrorCode::kProtocolError:
@@ -221,7 +231,15 @@ ErrorCode from_ipc_error_code(std::string_view code) noexcept {
     if (code == kSshFailed)
         return ErrorCode::kSshFailed;
     if (code == kMountFailed)
-        return ErrorCode::kIoError;
+        return ErrorCode::kMountFailed;
+    if (code == kUnmountFailed)
+        return ErrorCode::kUnmountFailed;
+    if (code == kShareSetupFailed)
+        return ErrorCode::kShareSetupFailed;
+    if (code == kPermissionDenied)
+        return ErrorCode::kPermissionDenied;
+    if (code == kMissingDependency)
+        return ErrorCode::kMissingDependency;
     if (code == kQmpError)
         return ErrorCode::kQemuError;
     if (code == kInternal)
