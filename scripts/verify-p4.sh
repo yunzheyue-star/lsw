@@ -36,7 +36,12 @@ check_grep "src/vm/install.cpp" "swtpm" "检查 swtpm（可选）"
 check_grep "src/vm/qemu.cpp" "OVMF_CODE.4m.fd" "收录 Arch edk2-ovmf 路径"
 check_grep "src/vm/install.cpp" "edk2-ovmf" "按发行版给出 OVMF 安装提示"
 check_grep "src/vm/install.cpp" "pacman" "Arch 提示使用 pacman"
-check_grep "src/vm/qemu.cpp" "smbd" "检测 smbd 后再启用 user SMB"
+if grep -q 'smb=' src/vm/qemu.cpp 2>/dev/null; then
+  ng "QEMU 运行参数不应再使用 user SMB（P6 起改 host Samba + 10.0.2.2）"
+else
+  ok "QEMU 运行参数不再使用 user SMB（host Samba）"
+fi
+check_grep "src/vm/install.cpp" 'find_executable("smbd")' "安装依赖检查包含 smbd（host Samba）"
 check_grep "src/vm/qemu.cpp" "QEMU 输出" "QMP 失败时携带 QEMU 日志"
 
 # ---------- P4-2 ISO 校验 ----------
@@ -135,8 +140,13 @@ fi
 # 依赖缺失路径：仅在确实缺 KVM 或 OVMF 的环境断言退出码 3
 if [ ! -e /dev/kvm ] ||
    { [ ! -f /usr/share/OVMF/OVMF_CODE.fd ] &&
-     [ ! -f /usr/share/edk2/ovmf/OVMF_CODE.fd ]; }; then
+     [ ! -f /usr/share/OVMF/OVMF_CODE.4m.fd ] &&
+     [ ! -f /usr/share/edk2/ovmf/OVMF_CODE.fd ] &&
+     [ ! -f /usr/share/edk2/x64/OVMF_CODE.4m.fd ]; }; then
   TMP_DEPS="$(mktemp -d)"
+  # 放两个空 .iso，避免 ISO 存在性校验抢先于依赖错误（安装器应先报依赖缺失）。
+  : >"$TMP_DEPS/win.iso"
+  : >"$TMP_DEPS/virtio.iso"
   HOME="$TMP_DEPS/home" XDG_CONFIG_HOME="$TMP_DEPS/config" \
     XDG_DATA_HOME="$TMP_DEPS/data" XDG_STATE_HOME="$TMP_DEPS/state" \
     XDG_RUNTIME_DIR="$TMP_DEPS/run" \
