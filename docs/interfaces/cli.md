@@ -16,9 +16,9 @@
 
 ## 命令
 
-### `lsw --install`
+### `lsw --install` / `lsw install`
 
-引导用户完成 Windows 安装。**不提供、不下载 Windows ISO**。
+引导用户完成 Windows 安装；`lsw install` 与 `lsw --install` 完全等价，支持相同的 `--iso` / `--virtio-iso` / `--disk` / `--firmware` / `--allow-existing-disk` 选项。**不提供、不下载 Windows ISO**。
 
 参数：
 

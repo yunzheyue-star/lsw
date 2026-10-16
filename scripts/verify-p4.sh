@@ -128,6 +128,25 @@ if ./build/lsw --help 2>&1 | grep -q -- "--install"; then
 else
   ng "lsw --help 缺少 --install"
 fi
+if ./build/lsw --help 2>&1 | grep -qE '^  install '; then
+  ok "lsw --help 的 SUBCOMMANDS 列出 install"
+else
+  ng "lsw --help 缺少 install 子命令"
+fi
+if ./build/lsw install --help 2>&1 | grep -q -- "--iso"; then
+  ok "lsw install --help 列出 --iso"
+else
+  ng "lsw install --help 缺少安装选项"
+fi
+alias_extra_out="$(./build/lsw install "$ROOT/not-an-option.iso" 2>&1)"
+alias_extra_rc=$?
+if [ "$alias_extra_rc" -eq 2 ] &&
+  printf '%s' "$alias_extra_out" | grep -q "路径必须配合选项"; then
+  ok "lsw install 多余位置参数给出友好提示（退出码 2）"
+else
+  ng "lsw install 位置参数提示异常：退出码 $alias_extra_rc"
+  printf '%s\n' "$alias_extra_out" | sed 's/^/       /'
+fi
 extra_out="$(./build/lsw --install "$ROOT/not-an-option.iso" 2>&1)"
 extra_rc=$?
 if [ "$extra_rc" -eq 2 ] && printf '%s' "$extra_out" | grep -q "路径必须配合选项"; then
@@ -159,6 +178,20 @@ if [ ! -e /dev/kvm ] ||
   else
     ng "依赖缺失路径异常：退出码 $rc"
     sed 's/^/       /' "$TMP_DEPS/out.log"
+  fi
+  HOME="$TMP_DEPS/home" XDG_CONFIG_HOME="$TMP_DEPS/config" \
+    XDG_DATA_HOME="$TMP_DEPS/data" XDG_STATE_HOME="$TMP_DEPS/state" \
+    XDG_RUNTIME_DIR="$TMP_DEPS/run" \
+    timeout 20 ./build/lsw install --iso "$TMP_DEPS/win.iso" \
+      --virtio-iso "$TMP_DEPS/virtio.iso" --disk "$TMP_DEPS/disk.qcow2" \
+      >"$TMP_DEPS/install-alias.log" 2>&1
+  alias_rc=$?
+  if [ "$alias_rc" -eq 3 ] &&
+    grep -q "缺少安装依赖" "$TMP_DEPS/install-alias.log"; then
+    ok "lsw install 与 --install 走同一依赖检查（退出码 3）"
+  else
+    ng "lsw install 依赖路径异常：退出码 $alias_rc"
+    sed 's/^/       /' "$TMP_DEPS/install-alias.log"
   fi
   rm -rf "$TMP_DEPS"
 else
@@ -200,6 +233,7 @@ rm -rf "$TMP_INSTALL"
 # ---------- 文档同步 ----------
 section "文档同步"
 check_grep "docs/interfaces/cli.md" "P4" "cli.md 记录 --install P4 行为"
+check_grep "docs/interfaces/cli.md" "lsw install" "cli.md 记录 install 子命令别名"
 check_grep "docs/interfaces/qmp.md" "Installer" "qmp.md 记录 Installer"
 check_grep "docs/TASKS.md" "P4 验收方式" "TASKS.md 含 P4 验收方式"
 check_grep "docs/CHANGELOG.md" "Installer" "CHANGELOG 记录 Installer"

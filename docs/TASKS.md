@@ -27,6 +27,7 @@
 | P8 | `lsw <program>` 执行（.exe/.bat/.cmd） | 5% | [x] |
 | P9 | 系统测试与 1.0 收口 | 10% | [ ] |
 | P10 | `lsw status`（扩展） | — | [x] |
+| P11 | `lsw install` 子命令别名（扩展） | — | [x] |
 | **合计** | | **100%** | 当前 **90%**（P9 完成后 100%，P10 为扩展） |
 
 ## 权重分布
@@ -301,6 +302,27 @@ bash scripts/verify-status.sh
 - 2026-10-16：真机 `lsw status` 运行中正确显示 VM 运行状态、Windows 主机名与 virtio-win；`lsw shutdown` 后离线状态显示“已安装/已停止”并复用 guest 缓存；
 - 拼写错误 `lsw statu` 返回未知命令（退出码 2），不再误入 exec；
 - 自动化：`bash scripts/verify-status.sh` **31/31 通过**，`ctest` **122/122 通过**，P0~P8 回归全绿。
+
+## P11 · `lsw install` 子命令别名（扩展功能）
+
+> 与 `lsw --install` 完全等价，便于统一使用子命令形式。
+
+| 编号 | 任务 | 交付物 / 验收标准 | 依赖 | 状态 |
+| --- | --- | --- | --- | :---: |
+| P11-1 | CLI 别名 | `lsw install` 与 `lsw --install` 走同一 Installer；选项与交互行为一致 | P4 | [x] |
+
+### P11 验收方式
+
+```bash
+./build/lsw install --help          # 应列出 --iso/--virtio-iso/--disk/--firmware
+./build/lsw --help                  # SUBCOMMANDS 应包含 install
+bash scripts/verify-p4.sh           # 包含 alias 检查
+```
+
+### P11 真机验收记录
+
+- 2026-10-16：主人确认 `lsw install --help`、`lsw --help` 子命令列表、多余参数返回 2 等行为与 `lsw --install` 保持一致；未执行破坏性完整安装；
+- 自动化：`bash scripts/verify-p4.sh` **47/47 通过**，`ctest` **122/122 通过**，verify-p0~p8 与 status 全绿。
 
 ---
 

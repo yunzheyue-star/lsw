@@ -466,6 +466,18 @@ int main(int argc, char **argv) {
     app.add_flag("--save-password", save_password,
                  "把交互输入的 Windows 密码保存到系统 keyring");
 
+    auto *install_command =
+        app.add_subcommand("install", "引导安装 Windows（等价于 --install）");
+    install_command->add_option("--iso", iso, "Windows ISO 路径");
+    install_command->add_option("--virtio-iso", virtio_iso,
+                                "virtio-win ISO 路径");
+    install_command->add_option("--disk", disk, "系统盘 qcow2 路径");
+    install_command
+        ->add_option("--firmware", firmware, "安装固件：bios（默认）或 ovmf")
+        ->check(CLI::IsMember({"bios", "ovmf"}));
+    install_command->add_flag("--allow-existing-disk", allow_existing_disk,
+                              "允许复用 LSW 数据目录之外已存在的磁盘（危险）");
+
     auto *start_command =
         app.add_subcommand("start", "启动 Windows 虚拟机服务");
     auto *shutdown_command =
@@ -493,8 +505,18 @@ int main(int argc, char **argv) {
         return app.exit(error);
     }
 
-    const auto extras = app.remaining();
-    if (install_flag && !extras.empty()) {
+    std::vector<std::string> extras = app.remaining();
+    // CLI11 子命令的剩余位置参数不会进入父 App.remaining()，逐个收集。
+    for (auto *sub :
+         {install_command, start_command, shutdown_command, mount_command,
+          unmount_command, shell_command, status_command}) {
+        if (sub != nullptr && sub->parsed()) {
+            const auto sub_extras = sub->remaining();
+            extras.insert(extras.end(), sub_extras.begin(), sub_extras.end());
+        }
+    }
+    const bool want_install = install_flag || install_command->parsed();
+    if (want_install && !extras.empty()) {
         std::cerr << "lsw: 多余的参数:";
         for (const auto &item : extras) {
             std::cerr << " " << item;
@@ -503,7 +525,7 @@ int main(int argc, char **argv) {
                      "--virtio-iso、--disk。\n";
         return lsw::to_exit_code(lsw::ErrorCode::kInvalidArgument);
     }
-    if (install_flag) {
+    if (want_install) {
         auto paths = lsw::resolve_paths(lsw::PathEnvironment::from_process());
         if (!paths) {
             return report_error(paths.error());

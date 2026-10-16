@@ -6,6 +6,7 @@
 
 ### 新增
 
+- 新增 `lsw install` 子命令，与 `lsw --install` 完全等价，支持相同的 ISO/磁盘/固件选项，便于把 install 与 start/status 等子命令保持统一形式。
 - `lsw status [--json]`（新增功能）：查看 daemon/VM 状态、磁盘是否存在、安装标记、Windows 主机名与 virtio-win 驱动；VM 运行时 SSH 探测并缓存到 `$STATE/lsw/guest.json`，停止时读缓存；`lsw --install` 成功后写 `$STATE/lsw/install.json`。
 - P8 `lsw <program>`：支持 `.exe`/`.bat`/`.cmd`；daemon 解析 argv/cwd、`$HOME` 外复制到 `~/.lsw/tmp/<hash>/`、PE GUI 检测、非交互 SSH、Windows `%TEMP%` 本地副本执行（规避 SMB 文件锁）、stdout/stderr/exit_code 透传；新增 `PROGRAM_FAILED` 与 `scripts/verify-p8.sh`。
 - P7 `lsw shell`：CLI 上报 `cwd`，daemon 经 `map_cwd_to_z` 生成含 `net use Z:` + `Set-Location` 的 EncodedCommand `ssh_args`；CLI `execvp` 接管终端，`$HOME` 外返回 `PATH_OUTSIDE_HOME`，VM 未运行返回 `VM_NOT_RUNNING`；新增 `scripts/verify-p7.sh`；终端体验：启动清屏 + RawUI 缓冲区归一化 + `Clear-Host` 清滚动回退。
