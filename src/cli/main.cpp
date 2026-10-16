@@ -8,6 +8,7 @@
  * @date 2026-10-14
  */
 
+#include <cctype>
 #include <cerrno>
 #include <chrono>
 #include <cstdlib>
@@ -32,6 +33,7 @@
 #include <lsw/util/paths.hpp>
 #include <lsw/vm/install.hpp>
 #include <lsw/vm/qemu.hpp>
+#include <lsw/vm/status.hpp>
 
 #ifndef LSW_VERSION
 #define LSW_VERSION "0.1.0"
@@ -310,6 +312,128 @@ int run_exec_command(const lsw::XdgPaths &paths,
     return exit_code & 0xFF;
 }
 
+/// @brief 判断位置参数是否像一个要交给 Windows 执行的程序。
+/// 满足任一条件即视为程序：包含路径分隔符、扩展名为
+/// .exe/.bat/.cmd/.com（大小写不敏感）、或当前目录下存在同名普通文件。
+/// @param value 用户输入的第一个位置参数。
+/// @return 像程序返回 true；否则返回 false（按未知命令处理）。
+bool looks_like_program(const std::string &value) {
+    if (value.find('/') != std::string::npos ||
+        value.find('\\') != std::string::npos) {
+        return true;
+    }
+    std::string extension = std::filesystem::path(value).extension().string();
+    for (char &ch : extension) {
+        ch = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
+    }
+    if (extension == ".exe" || extension == ".bat" || extension == ".cmd" ||
+        extension == ".com") {
+        return true;
+    }
+    std::error_code error;
+    const auto candidate = std::filesystem::absolute(value, error);
+    if (error) {
+        return false;
+    }
+    return std::filesystem::is_regular_file(candidate, error) && !error;
+}
+
+/// @brief 人类可读的 virtio 来源说明。
+/// @param source virtio_source 字段。
+/// @return 中文说明。
+std::string virtio_source_text(const std::string &source) {
+    if (source == "runtime_probe") {
+        return "运行时探测";
+    }
+    if (source == "cache") {
+        return "上次运行缓存";
+    }
+    if (source == "install_marker") {
+        return "安装标记（仅表示提供过 virtio ISO）";
+    }
+    return "无";
+}
+
+/// @brief 人类可读的 virtio 状态。
+/// @param value virtio_win 字段。
+/// @return 中文说明。
+std::string virtio_status_text(const std::string &value) {
+    if (value == "installed") {
+        return "已安装";
+    }
+    if (value == "not_installed") {
+        return "未检测到";
+    }
+    return "未知（启动 VM 后可探测）";
+}
+
+/// @brief 执行 `lsw status`：优先询问 daemon，失败时离线读取磁盘/缓存。
+/// @param paths XDG 路径。
+/// @param json_output 是否输出 JSON。
+/// @return 进程退出码。
+int run_status_command(const lsw::XdgPaths &paths, bool json_output) {
+    lsw::Config config = lsw::default_config();
+    if (auto loaded = lsw::load_config(paths.config_file, true); loaded) {
+        config = *loaded;
+    } else {
+        return report_error(loaded.error());
+    }
+
+    lsw::ipc::ClientOptions options;
+    options.socket_path = paths.runtime_dir / "lswd.sock";
+    options.connect_timeout = std::chrono::milliseconds(300);
+    options.io_timeout = std::chrono::milliseconds(2000);
+    lsw::ipc::Client client(options);
+    auto daemon_status = client.call("status");
+    nlohmann::json status = daemon_status
+                                ? *daemon_status
+                                : lsw::vm::offline_status_json(config, paths);
+    if (!daemon_status) {
+        status["daemon"] = "stopped";
+    }
+
+    if (json_output) {
+        std::cout << status.dump(2) << "\n";
+        return 0;
+    }
+
+    const bool daemon_running = status.value("daemon", "stopped") == "running";
+    const bool installed = status.value("vm_installed", false);
+    const bool disk_exists = status.value("disk_exists", false);
+    const std::string vm_status = status.value("vm_status", "stopped");
+    const int pid = status.value("pid", -1);
+    const std::string disk = status.value("disk", std::string{});
+
+    std::string vm_state = "未知";
+    if (vm_status == "running") {
+        vm_state = "运行中";
+        if (pid > 0) {
+            vm_state += "（pid " + std::to_string(pid) + "）";
+        }
+    } else if (vm_status == "stopped" || vm_status == "shutdown") {
+        vm_state = "已停止";
+    }
+
+    std::cout << "LSW 状态\n";
+    std::cout << "  守护进程       : " << (daemon_running ? "运行中" : "未运行")
+              << "\n";
+    std::cout << "  Windows 虚拟机 : " << (installed ? "已安装" : "未安装")
+              << "\n";
+    std::cout << "  磁盘镜像       : " << disk << "（"
+              << (disk_exists ? "存在" : "缺失") << "）\n";
+    std::cout << "  虚拟机状态     : " << vm_state << "\n";
+    const auto hostname = status.value("hostname", std::string{});
+    std::cout << "  Windows 主机名 : "
+              << (hostname.empty() ? "未知（启动 VM 后可查询）" : hostname)
+              << "\n";
+    std::cout << "  virtio-win     : "
+              << virtio_status_text(status.value("virtio_win", "unknown"))
+              << "（来源: "
+              << virtio_source_text(status.value("virtio_source", "none"))
+              << "）\n";
+    return 0;
+}
+
 } // namespace
 
 /// @brief lsw CLI 入口，解析并执行 install/start/shutdown 命令。
@@ -352,6 +476,10 @@ int main(int argc, char **argv) {
         app.add_subcommand("unmount", "卸载 /mnt/Windows 下的 Windows 共享");
     auto *shell_command =
         app.add_subcommand("shell", "进入 Windows PowerShell 终端");
+    bool status_json = false;
+    auto *status_command =
+        app.add_subcommand("status", "查看 LSW 与 Windows 虚拟机状态");
+    status_command->add_flag("--json", status_json, "以 JSON 输出状态");
 
     try {
         app.parse(argc, argv);
@@ -463,10 +591,26 @@ int main(int argc, char **argv) {
         return run_daemon_command(*paths, "shutdown");
     }
 
+    if (status_command->parsed()) {
+        if (!extras.empty()) {
+            std::cerr << "lsw status 不接受额外位置参数\n";
+            return lsw::to_exit_code(lsw::ErrorCode::kInvalidArgument);
+        }
+        auto paths = lsw::resolve_paths(lsw::PathEnvironment::from_process());
+        if (!paths) {
+            return report_error(paths.error());
+        }
+        return run_status_command(*paths, status_json);
+    }
     if (!extras.empty()) {
         if (shell_command->parsed()) {
             std::cerr << "lsw shell 不接受额外位置参数\n";
             return lsw::to_exit_code(lsw::ErrorCode::kInvalidArgument);
+        }
+        if (!looks_like_program(extras.front())) {
+            std::cerr << "lsw: 未知命令: " << extras.front() << "\n";
+            std::cout << app.help();
+            return lsw::to_exit_code(lsw::ErrorCode::kUnknownCommand);
         }
         auto paths = lsw::resolve_paths(lsw::PathEnvironment::from_process());
         if (!paths) {

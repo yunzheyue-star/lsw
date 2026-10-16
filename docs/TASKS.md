@@ -26,7 +26,8 @@
 | P7 | `lsw shell` 桥接 | 8% | [x] |
 | P8 | `lsw <program>` 执行（.exe/.bat/.cmd） | 5% | [x] |
 | P9 | 系统测试与 1.0 收口 | 10% | [ ] |
-| **合计** | | **100%** | 当前 **90%** |
+| P10 | `lsw status`（扩展） | — | [x] |
+| **合计** | | **100%** | 当前 **90%**（P9 完成后 100%，P10 为扩展） |
 
 ## 权重分布
 
@@ -276,6 +277,30 @@ exit /b 0
 | P9-3 | 文档全量对齐 | 接口 / 图 / CHANGELOG / TASKS 状态一致；PlantUML 实际渲染复核 | P9-2 | 2% | [ ] |
 | P9-4 | 安全与合规审计 | 不提供 ISO、无明文密码、helper 最小权限、无 shell 注入、不越权 KVM | P6、P9-2 | 1% | [ ] |
 | P9-5 | DoD 终验与发布 | 勾选 `agent.md` Definition of Done；打 `v1.0.0`；CHANGELOG 归档 | P9-4 | 1% | [ ] |
+
+## P10 · `lsw status` 状态查询（扩展功能）
+
+> 不属于 P0~P9 的 1.0 收口权重，单独作为扩展功能跟踪。
+
+| 编号 | 任务 | 交付物 / 验收标准 | 依赖 | 状态 |
+| --- | --- | --- | --- | :---: |
+| P10-1 | 离线状态 | 磁盘存在性、安装标记、daemon 未运行时的只读状态 | P4 | [x] |
+| P10-2 | 运行时 guest 探测 | VM 运行中经 SSH 查询 Windows 主机名与 virtio 驱动，缓存 `guest.json` | P7、P8 | [x] |
+| P10-3 | CLI/JSON 输出 | `lsw status [--json]` 表格与 JSON；接口/时序图/CHANGELOG 同步 | P2 | [x] |
+
+### P10 验收方式
+
+```bash
+bash scripts/verify-status.sh
+```
+
+预期：离线 `lsw status --json` 正确报告磁盘与安装状态；假 QEMU/假 ssh E2E 下 daemon 运行时返回 hostname/virtio_win/vm_status；`ctest` 全绿。
+
+### P10 真机验收记录
+
+- 2026-10-16：真机 `lsw status` 运行中正确显示 VM 运行状态、Windows 主机名与 virtio-win；`lsw shutdown` 后离线状态显示“已安装/已停止”并复用 guest 缓存；
+- 拼写错误 `lsw statu` 返回未知命令（退出码 2），不再误入 exec；
+- 自动化：`bash scripts/verify-status.sh` **31/31 通过**，`ctest` **122/122 通过**，P0~P8 回归全绿。
 
 ---
 

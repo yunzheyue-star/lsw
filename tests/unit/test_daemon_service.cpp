@@ -219,3 +219,31 @@ TEST_CASE("DaemonService exec 返回 stdout/stderr/exit_code", "[daemon][exec]")
 
     REQUIRE(service.handle("shutdown").has_value());
 }
+
+TEST_CASE("DaemonService status 返回 guest 探测信息", "[daemon][status]") {
+    Fixture fixture;
+    const auto fake_ssh = fixture.temp.path() / "fake-ssh-status";
+    std::ofstream(fake_ssh) << "#!/usr/bin/env bash\n"
+                               "echo LSW_HOSTNAME=FAKE-STATUS\n"
+                               "echo LSW_VIRTIO=installed:vioscsi,netkvm\n"
+                               "exit 0\n";
+    std::filesystem::permissions(fake_ssh, std::filesystem::perms::owner_exec,
+                                 std::filesystem::perm_options::add);
+
+    auto options = fixture.options();
+    options.z_mapping_options.ssh_binary = fake_ssh.string();
+    options.status_probe_timeout = std::chrono::seconds(2);
+    DaemonService service(fixture.config, fixture.paths, options);
+    REQUIRE(service.handle("start").has_value());
+
+    const auto status = service.handle("status");
+    REQUIRE(status.has_value());
+    CHECK((*status)["daemon"] == "running");
+    CHECK((*status)["vm_status"] == "running");
+    CHECK((*status)["vm_installed"] == true);
+    CHECK((*status)["hostname"] == "FAKE-STATUS");
+    CHECK((*status)["virtio_win"] == "installed");
+    CHECK((*status)["virtio_source"] == "runtime_probe");
+
+    REQUIRE(service.handle("shutdown").has_value());
+}

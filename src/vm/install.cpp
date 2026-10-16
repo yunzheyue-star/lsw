@@ -10,6 +10,8 @@
 
 #include <lsw/vm/install.hpp>
 
+#include <lsw/vm/status.hpp>
+
 #include <algorithm>
 #include <cctype>
 #include <fstream>
@@ -507,6 +509,17 @@ Result<InstallResult> Installer::run() {
     if (*exit_code != 0) {
         return fail(ErrorCode::kQemuError, "安装模式 QEMU 异常退出，退出码 " +
                                                std::to_string(*exit_code));
+    }
+    InstallMarker marker{
+        .exists = true,
+        .disk = disk->string(),
+        .windows_iso = options_.windows_iso.string(),
+        .virtio_iso = options_.virtio_iso.string(),
+        .completed_at = 0,
+    };
+    if (auto saved = save_install_marker(paths_, marker); !saved) {
+        std::cerr << "lsw: 警告：无法写入安装标记（不影响安装结果）："
+                  << saved.error().message << "\n";
     }
     return InstallResult{*exit_code, post_install_guidance()};
 }

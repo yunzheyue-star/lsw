@@ -60,6 +60,7 @@ section "P8-3 · CLI 与 GUI 提示"
 check_grep "src/cli/main.cpp" "run_exec_command" "CLI exec 入口"
 check_grep "src/cli/main.cpp" "app.remaining" "解析位置参数"
 check_grep "src/cli/main.cpp" "exit_code & 0xFF" "退出码透传"
+check_grep "src/cli/main.cpp" "looks_like_program" "拼写错误按未知命令拒绝"
 check_grep "src/exec/windows_runner.cpp" "暂不支持 GUI" "GUI 明确提示"
 
 # ---------- 文档同步 ----------

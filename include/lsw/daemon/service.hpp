@@ -43,6 +43,7 @@ struct DaemonServiceOptions {
     std::chrono::milliseconds ssh_ready_timeout{120000};
     std::chrono::milliseconds ssh_poll_interval{250};
     std::chrono::milliseconds exec_timeout{300000};
+    std::chrono::milliseconds status_probe_timeout{8000};
     bool try_ssh_shutdown{true};
 };
 
@@ -85,7 +86,7 @@ class DaemonService {
     /// @brief 处理 shutdown 命令。
     /// @return 命令结果 JSON。
     [[nodiscard]] Result<nlohmann::json> on_shutdown();
-    /// @brief 处理 status 命令。
+    /// @brief 处理 status 命令：daemon/VM/磁盘/guest 信息。
     /// @return 命令结果 JSON。
     [[nodiscard]] Result<nlohmann::json> on_status();
     /// @brief 处理 mount 命令。

@@ -1,0 +1,26 @@
+@startuml
+title lsw status 时序
+actor User
+participant "lsw" as CLI
+participant "lswd" as Daemon
+participant "QMP" as QMP
+participant "Windows OpenSSH" as WinSSH
+
+User -> CLI : lsw status [--json]
+CLI -> Daemon : status（短超时探测）
+alt daemon 未运行
+  CLI -> CLI : 读取磁盘 + install.json + guest.json
+  CLI --> User : daemon=stopped / vm_status=stopped
+else daemon 运行
+  Daemon -> QMP : query-status（VM 运行时）
+  alt VM 运行且缓存过期
+    Daemon -> WinSSH : ssh 探测 hostname + virtio 服务
+    WinSSH --> Daemon : LSW_HOSTNAME / LSW_VIRTIO
+    Daemon -> Daemon : 写 $STATE/lsw/guest.json
+  else VM 停止或缓存有效
+    Daemon -> Daemon : 读取 guest.json 缓存
+  end
+  Daemon --> CLI : vm_installed/disk/hostname/virtio_win/...
+end
+CLI --> User : 表格 或 JSON
+@enduml

@@ -97,13 +97,34 @@
 
 退出码：`0` 成功、`5` 路径映射/文件不存在、`6` VM 未运行/SSH 失败/执行超时、`7` GUI 程序（`PROGRAM_FAILED`）或未归类执行错误。
 
+位置参数识别规则：第一个参数含 `/`、扩展名为 `.exe`/`.bat`/`.cmd`/`.com`（大小写不敏感），或当前目录下存在同名普通文件时，才作为 Windows 程序执行；否则按未知命令处理并返回退出码 2（避免拼写错误被误当作程序）。
+
 示例：
 
 ```bash
 lsw test.exe arg1 arg2
 lsw hello.bat
 lsw build.cmd --release
+lsw ./tools/run.bat
 ```
+
+### `lsw status [--json]`
+
+查看 LSW 与 Windows 虚拟机状态，不启动 daemon/VM（只读）：
+
+| 字段 | 含义 |
+| --- | --- |
+| 守护进程 | `lswd` 是否运行 |
+| Windows 虚拟机 | 磁盘镜像是否存在（`~/.local/share/lsw/vm/disk.qcow2`） |
+| 磁盘镜像 | 实际路径与存在性 |
+| 虚拟机状态 | 运行中（含 pid）/ 已停止 / 未知；来自 QMP `query-status` |
+| Windows 主机名 | VM 运行时经 SSH 查询 `[System.Net.Dns]::GetHostName()`，并缓存到 `$STATE/lsw/guest.json`；停止时显示上次缓存 |
+| virtio-win | 运行时查询 Windows 服务 `vioscsi`/`viostor`/`netkvm`/`balloon`/`vioserial`/`qxldod`；停止时显示缓存；从未探测显示未知 |
+
+- 默认人类可读表格；`--json` 输出完整 JSON，便于脚本消费。
+- daemon 未运行时 CLI 直接读取磁盘、安装标记与 guest 缓存，显示 `守护进程: 未运行`，不会自动拉起 `lswd`。
+- 安装标记位于 `$STATE/lsw/install.json`，由 `lsw --install` 成功后写入，记录 ISO 路径与完成时间。
+- 退出码：`0` 成功；`2` 配置错误。
 
 ### `lsw shutdown`
 

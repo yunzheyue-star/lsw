@@ -24,6 +24,7 @@ docs/
     ├── sequence-start.puml
     ├── sequence-shell.puml
     ├── sequence-exec.puml
+    ├── sequence-status.puml
     └── sequence-shutdown.puml
 ```
 

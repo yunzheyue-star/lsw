@@ -26,6 +26,7 @@
 #include <lsw/shell/powershell.hpp>
 #include <lsw/util/log.hpp>
 #include <lsw/util/net.hpp>
+#include <lsw/vm/status.hpp>
 
 namespace lsw::daemon {
 namespace {
@@ -184,6 +185,10 @@ DaemonServiceOptions default_daemon_service_options() {
     }
     if (auto value = env_long("LSW_EXEC_TIMEOUT_MS"); value.has_value()) {
         options.exec_timeout = std::chrono::milliseconds(*value);
+    }
+    if (auto value = env_long("LSW_STATUS_PROBE_TIMEOUT_MS");
+        value.has_value()) {
+        options.status_probe_timeout = std::chrono::milliseconds(*value);
     }
     return options;
 }
@@ -365,20 +370,64 @@ Result<nlohmann::json> DaemonService::on_shutdown() {
  */
 Result<nlohmann::json> DaemonService::on_status() {
     std::lock_guard lock(mutex_);
-    std::string vm_status = "stopped";
-    int pid = -1;
-    if (vm_.has_value() && vm_->running()) {
-        pid = vm_->pid();
-        if (auto status = vm_->status(); status) {
-            vm_status = std::string(vm::to_string(*status));
-        } else {
-            vm_status = "unknown";
+    auto out = vm::offline_status_json(config_, paths_);
+    out["daemon"] = "running";
+    out["mounts"] = mounts_;
+
+    const bool running = vm_.has_value() && vm_->running();
+    if (!running) {
+        out["vm_status"] = "stopped";
+        out["pid"] = -1;
+        return out;
+    }
+
+    out["pid"] = vm_->pid();
+    if (auto status = vm_->status(); status) {
+        out["vm_status"] = std::string(vm::to_string(*status));
+    } else {
+        out["vm_status"] = "unknown";
+    }
+    out["vm_installed"] = true;
+
+    auto cached = vm::load_guest_status(paths_);
+    const bool cache_valid = cached && cached->valid;
+    const auto now = std::chrono::system_clock::now().time_since_epoch();
+    const auto now_seconds =
+        std::chrono::duration_cast<std::chrono::seconds>(now).count();
+    const bool cache_fresh = cache_valid && cached->checked_at > 0 &&
+                             now_seconds - cached->checked_at < 300;
+    const auto apply_cached = [&out, &cached]() {
+        out["hostname"] = cached->hostname;
+        out["virtio_win"] = cached->virtio_win;
+        out["virtio_source"] =
+            cached->source.empty() ? "cache" : cached->source;
+        out["guest_checked_at"] = cached->checked_at;
+    };
+
+    if (!cache_fresh) {
+        auto probed = vm::probe_guest_status(
+            config_, options_.z_mapping_options.ssh_binary,
+            options_.status_probe_timeout);
+        if (probed) {
+            if (auto saved = vm::save_guest_status(paths_, *probed); !saved) {
+                // 缓存写失败不影响本次查询结果。
+            }
+            out["hostname"] = probed->hostname;
+            out["virtio_win"] = probed->virtio_win;
+            out["virtio_source"] = "runtime_probe";
+            out["guest_checked_at"] = probed->checked_at;
+            return out;
         }
     }
-    return nlohmann::json{{"daemon", "running"},
-                          {"vm_status", vm_status},
-                          {"mounts", mounts_},
-                          {"pid", pid}};
+    if (cache_valid) {
+        apply_cached();
+    } else {
+        out["hostname"] = std::string{};
+        out["virtio_win"] = "unknown";
+        out["virtio_source"] = "none";
+        out["guest_checked_at"] = 0;
+    }
+    return out;
 }
 
 /** @brief 处理 mount 命令：初始化并返回 Windows 挂载点。

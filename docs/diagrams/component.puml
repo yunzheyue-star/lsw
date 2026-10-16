@@ -25,7 +25,7 @@ Daemon --> QEMU : spawn
 Daemon --> QMP : control\n$RUNTIME/lsw/qmp.sock
 QMP --> QEMU
 CLI --> WinSSH : execvp ssh -t（shell 接管终端）
-Daemon --> WinSSH : ssh 非交互（exec 捕获输出）
+Daemon --> WinSSH : ssh 非交互（exec 捕获输出）\nstatus 探测 hostname/virtio
 WinSSH --> PS
 PS --> SMB : Z:（host Samba 共享）
 Daemon --> Keyring : secret-tool 凭据读写

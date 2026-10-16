@@ -7,7 +7,7 @@
 | 格式 | JSON Lines（每个请求/响应占一行） |
 | 模型 | 请求-响应，`id` 一一对应 |
 
-> 实现状态：P5 已将 `start`/`shutdown` 接入 `DaemonService`（拉起 QEMU、等待 SSH banner、SSH/QMP 关机与资源清理）；P6 已把 `mount`/`unmount` 接入 CIFS，并在 `start`/`shutdown` 中启动/停止 host Samba 与挂载/卸载 CIFS；`Z:` 因按登录会话隔离，延迟到实际使用会话（`lsw shell`/验收）映射；P7 已实现 `shell`（返回 `ssh_args`，VM 未运行返回 `VM_NOT_RUNNING`）；P8 已实现 `exec`（路径解析/复制、非交互 SSH、stdout/stderr/退出码透传）。
+> 实现状态：P5 已将 `start`/`shutdown` 接入 `DaemonService`（拉起 QEMU、等待 SSH banner、SSH/QMP 关机与资源清理）；P6 已把 `mount`/`unmount` 接入 CIFS，并在 `start`/`shutdown` 中启动/停止 host Samba 与挂载/卸载 CIFS；`Z:` 因按登录会话隔离，延迟到实际使用会话（`lsw shell`/验收）映射；P7 已实现 `shell`（返回 `ssh_args`，VM 未运行返回 `VM_NOT_RUNNING`）；P8 已实现 `exec`（路径解析/复制、非交互 SSH、stdout/stderr/退出码透传）；P10 扩展 `status`（磁盘/安装标记、daemon/VM 状态、guest 主机名与 virtio 驱动探测缓存）。
 
 ## 报文结构
 
@@ -37,7 +37,7 @@
 | `shutdown` | `{}` | `{ "stopped": true, "already_stopped": false }` | 优先 SSH 关机，失败走 QMP/信号；完成后 lswd 退出 |
 | `shell` | `{ "cwd": "/home/u/p" }` | `{ "ssh_args": ["ssh", "-t", "-p", "2222", ..., "powershell.exe", "-NoLogo", "-NoExit", "-EncodedCommand", "<base64>"] }` | P7 已实现；`ssh_args` 内含远端 `net use Z:` + `Set-Location` 的编码脚本；cwd 不在 `$HOME` 下返回 `PATH_OUTSIDE_HOME`；VM 未运行返回 `VM_NOT_RUNNING`，由 CLI `execvp` 执行 |
 | `exec` | `{ "argv": ["test.bat", "a"], "cwd": "/home/u/p" }` | `{ "stdout": "...", "stderr": "...", "exit_code": 0 }` | P8 已实现；支持 `.exe`/`.bat`/`.cmd`；`$HOME` 外自动复制；远端再复制到 Windows `%TEMP%` 后执行，规避 SMB 文件锁；GUI exe 返回 `PROGRAM_FAILED`；退出码为 Windows 程序退出码 |
-| `status` | `{}` | `{ "daemon": "running", "vm_status": "running", "mounts": [...] }` | 查询守护进程与 VM 状态 |
+| `status` | `{}` | `{ "daemon": "running", "vm_status": "running", "vm_installed": true, "disk": "...", "disk_exists": true, "pid": 123, "hostname": "DESKTOP-X", "virtio_win": "installed", "virtio_source": "runtime_probe", "guest_checked_at": 1760000000, "install_marker": {...}, "mounts": [...] }` | 查询守护进程、VM 状态、安装标记与 guest 信息；VM 运行时经 SSH 探测并缓存，停止时回退缓存 |
 | `mount` | `{ "password": "..." }`（可选） | `{ "mounts": ["/mnt/Windows/C", "/mnt/Windows/D"] }` | 幂等；无凭据/helper 权限返回 `MOUNT_FAILED`/`PERMISSION_DENIED` |
 | `unmount` | `{}` | `{ "mounts": [] }` | 幂等 |
 

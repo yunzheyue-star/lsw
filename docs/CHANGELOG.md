@@ -6,6 +6,7 @@
 
 ### 新增
 
+- `lsw status [--json]`（新增功能）：查看 daemon/VM 状态、磁盘是否存在、安装标记、Windows 主机名与 virtio-win 驱动；VM 运行时 SSH 探测并缓存到 `$STATE/lsw/guest.json`，停止时读缓存；`lsw --install` 成功后写 `$STATE/lsw/install.json`。
 - P8 `lsw <program>`：支持 `.exe`/`.bat`/`.cmd`；daemon 解析 argv/cwd、`$HOME` 外复制到 `~/.lsw/tmp/<hash>/`、PE GUI 检测、非交互 SSH、Windows `%TEMP%` 本地副本执行（规避 SMB 文件锁）、stdout/stderr/exit_code 透传；新增 `PROGRAM_FAILED` 与 `scripts/verify-p8.sh`。
 - P7 `lsw shell`：CLI 上报 `cwd`，daemon 经 `map_cwd_to_z` 生成含 `net use Z:` + `Set-Location` 的 EncodedCommand `ssh_args`；CLI `execvp` 接管终端，`$HOME` 外返回 `PATH_OUTSIDE_HOME`，VM 未运行返回 `VM_NOT_RUNNING`；新增 `scripts/verify-p7.sh`；终端体验：启动清屏 + RawUI 缓冲区归一化 + `Clear-Host` 清滚动回退。
 - P6 复盘文档：[`docs/P6-回顾.md`](P6-回顾.md)（QEMU user SMB → host root Samba 的演进、真机 30/30 验收与经验教训）。
@@ -53,6 +54,7 @@
 
 ### 修复
 
+- 修复 `lsw <program>` 将拼写错误（如 `lsw statu`）误当程序执行、在 VM 未运行时返回 `VM_NOT_RUNNING` 的问题：CLI 先判断位置参数是否像程序（含路径分隔符、`.exe/.bat/.cmd/.com` 扩展名，或 cwd 下存在同名普通文件），否则按未知命令返回退出码 2。
 - 修正可执行文件源文件路径：原 `add_executable(lsw main.cpp)` 指向不存在的根目录文件，实际为 `src/main.cpp`。
 - `include/` 目录为空时不再向 `target_sources` 传入空列表（CMake 参数错误）。
 - 统一 `docs/interfaces/config.md` 的字段引用名 `config.user.windows_user`，与 CLI、SKILL 保持一致。

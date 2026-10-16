@@ -50,6 +50,7 @@
 | 启动 | `lsw start` | 拉起 `lswd` → QMP 启动 VM → 等待 2222 → 启动 host Samba → 挂载 CIFS（`Z:` 延迟到使用会话） | `sequence-start.puml` |
 | Shell | `lsw` / `lsw shell` | CLI 上报 cwd → daemon 返回编码 PowerShell 的 `ssh_args` → `execvp ssh -t` 接管终端（P7 已实现） | `sequence-shell.puml` |
 | 执行 | `lsw <program>`（`.exe`/`.bat`/`.cmd`） | daemon 解析/复制路径 → 映射 → 非交互 SSH 执行 → 透传 stdout/stderr/退出码（P8 已实现） | `sequence-exec.puml` |
+| 状态 | `lsw status [--json]` | 磁盘/安装标记判断已安装；daemon 运行时 QMP + SSH 探测主机名/virtio，停止时读缓存（新增功能） | `sequence-status.puml` |
 | 关闭 | `lsw shutdown` | SSH 关机 → QMP `system_powerdown` 兜底 → 卸载 → 停 `lswd` | `sequence-shutdown.puml` |
 
 ## 当前实现状态
