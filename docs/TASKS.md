@@ -28,6 +28,7 @@
 | P9 | 系统测试与 1.0 收口 | 10% | [ ] |
 | P10 | `lsw status`（扩展） | — | [x] |
 | P11 | `lsw install` 子命令别名（扩展） | — | [x] |
+| P12 | `lsw init` 环境初始化（扩展） | — | [x] |
 | **合计** | | **100%** | 当前 **90%**（P9 完成后 100%，P10 为扩展） |
 
 ## 权重分布
@@ -323,6 +324,31 @@ bash scripts/verify-p4.sh           # 包含 alias 检查
 
 - 2026-10-16：主人确认 `lsw install --help`、`lsw --help` 子命令列表、多余参数返回 2 等行为与 `lsw --install` 保持一致；未执行破坏性完整安装；
 - 自动化：`bash scripts/verify-p4.sh` **47/47 通过**，`ctest` **122/122 通过**，verify-p0~p8 与 status 全绿。
+
+## P12 · `lsw init` 宿主环境初始化（扩展功能）
+
+> 识别发行版/包管理器，检查并安装缺失依赖，初始化配置；不包含 Windows ISO 与 Windows 侧自动配置。
+
+| 编号 | 任务 | 交付物 / 验收标准 | 依赖 | 状态 |
+| --- | --- | --- | --- | :---: |
+| P12-1 | 发行版/包管理器检测 | `/etc/os-release` + 命令回退；Arch/Debian/Fedora；未知只提示手动命令 | P0 | [x] |
+| P12-2 | 依赖计划与自动安装 | 组件表 + 包名映射；已有跳过；`--dry-run`/交互确认/`--yes` | P4、P6 | [x] |
+| P12-3 | 配置与 helper 初始化 | 生成 `config.toml`（已有保留）；安装 helper + sudoers；Windows 侧提示 | P4、P6 | [x] |
+
+### P12 验收方式
+
+```bash
+./build/lsw init --help
+./build/lsw init --dry-run
+bash scripts/verify-init.sh
+```
+
+预期：dry-run 输出发行版、包管理器、组件检查与安装计划且不产生变更；`ctest` 与 init 单测全绿。
+
+### P12 真机验收记录
+
+- 2026-10-16：真机 `lsw init --dry-run` 正确识别 `Arch Linux` / `pacman`，KVM/QEMU/OVMF/Samba/cifs-utils/OpenSSH/swtpm/libsecret/helper 全部 `[OK]`，保留现有 `config.toml` 且未产生变更；
+- 自动化：`bash scripts/verify-init.sh` **26/26 通过**，`ctest` **127/127 通过**，verify-p0~p8 与 status 全绿。
 
 ---
 

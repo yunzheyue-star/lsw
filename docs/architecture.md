@@ -23,7 +23,7 @@
 | 模块 | 代码位置 | 职责 | 对应技能 |
 | --- | --- | --- | --- |
 | CLI | `src/cli/`、`include/lsw/cli/` | 命令解析、帮助、退出码 | SKILL-01 |
-| 核心 | `src/core/`、`include/lsw/core/` | 配置、状态、进程、路径映射 | SKILL-04 |
+| 核心 | `src/core/`、`include/lsw/core/` | 配置、状态、进程、路径映射、`lsw init` 宿主环境初始化 | SKILL-04 |
 | 虚拟化 | `src/vm/`、`include/lsw/vm/` | QEMU 生命周期、QMP、安装模式 | SKILL-02、SKILL-03 |
 | 文件系统 | `src/fs/`、`include/lsw/fs/` | CIFS 挂载、SMB 共享、`Z:` 映射 | SKILL-06、SKILL-07 |
 | Shell | `src/shell/`、`include/lsw/shell/` | PowerShell SSH 桥接 | SKILL-04 |
@@ -46,7 +46,8 @@
 
 | 流程 | 入口 | 说明 | 时序图 |
 | --- | --- | --- | --- |
-| 安装 | `lsw --install` | 依赖检查 → 交互输入 ISO → 创建磁盘 → GUI 安装 → 安装后指引 | `sequence-install.puml` |
+| 初始化 | `lsw init` | 发行版/包管理器识别 → 依赖检查 → 确认安装缺失包 → helper/配置初始化 → Windows 侧提示 | `sequence-init.puml` |
+| 安装 | `lsw --install` / `lsw install` | 依赖检查 → 交互输入 ISO → 创建磁盘 → GUI 安装 → 安装后指引 | `sequence-install.puml` |
 | 启动 | `lsw start` | 拉起 `lswd` → QMP 启动 VM → 等待 2222 → 启动 host Samba → 挂载 CIFS（`Z:` 延迟到使用会话） | `sequence-start.puml` |
 | Shell | `lsw` / `lsw shell` | CLI 上报 cwd → daemon 返回编码 PowerShell 的 `ssh_args` → `execvp ssh -t` 接管终端（P7 已实现） | `sequence-shell.puml` |
 | 执行 | `lsw <program>`（`.exe`/`.bat`/`.cmd`） | daemon 解析/复制路径 → 映射 → 非交互 SSH 执行 → 透传 stdout/stderr/退出码（P8 已实现） | `sequence-exec.puml` |

@@ -16,6 +16,18 @@
 
 ## 命令
 
+### `lsw init [--yes] [--dry-run]`
+
+初始化 LSW 宿主环境：识别发行版/包管理器，逐项检查依赖与组件，已有的跳过；缺失项展示安装命令，确认后自动安装；生成/保留 `config.toml`；提示 Windows 侧 `post-install.ps1`。
+
+| 参数 | 说明 |
+| --- | --- |
+| 无参数 | 交互确认后安装缺失依赖 |
+| `--yes` | 跳过确认（非交互/自动化必须使用） |
+| `--dry-run` | 只检测并打印计划，不写配置、不执行安装 |
+
+详见 [`docs/interfaces/init.md`](init.md)。
+
 ### `lsw --install` / `lsw install`
 
 引导用户完成 Windows 安装；`lsw install` 与 `lsw --install` 完全等价，支持相同的 `--iso` / `--virtio-iso` / `--disk` / `--firmware` / `--allow-existing-disk` 选项。**不提供、不下载 Windows ISO**。

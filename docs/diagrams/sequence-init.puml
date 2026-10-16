@@ -1,0 +1,26 @@
+@startuml
+title lsw init 时序
+actor User
+participant "lsw init" as CLI
+participant "包管理器" as PM
+participant "sudo/pkexec" as SUDO
+participant "文件系统" as FS
+
+User -> CLI : lsw init [--yes] [--dry-run]
+CLI -> FS : ensure_directories
+CLI -> FS : config.toml（存在则保留）
+CLI -> CLI : /etc/os-release + 命令回退\n识别发行版/包管理器
+CLI -> CLI : plan：检测 KVM/QEMU/OVMF/Samba/\ncifs-utils/ssh/swtpm/libsecret/helper
+CLI --> User : 组件检查表 + 缺失包 + 安装命令
+alt --dry-run
+  CLI --> User : 不做任何变更，退出 0
+else --yes 或用户确认
+  CLI -> SUDO : sudo pacman/apt/dnf install ...
+  SUDO -> PM : 安装缺失包
+  CLI -> SUDO : 安装 lsw-mount-helper + sudoers
+  CLI -> CLI : 复检必需组件
+  CLI --> User : 初始化完成 / 仍有手动项
+else 用户取消
+  CLI --> User : 已取消，退出 0
+end
+@enduml

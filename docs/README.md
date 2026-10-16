@@ -17,7 +17,8 @@ docs/
 │   ├── daemon-ipc.md
 │   ├── qmp.md
 │   ├── filesystem.md
-│   └── config.md
+│   ├── config.md
+│   └── init.md
 └── diagrams/
     ├── component.puml
     ├── sequence-install.puml
@@ -25,6 +26,7 @@ docs/
     ├── sequence-shell.puml
     ├── sequence-exec.puml
     ├── sequence-status.puml
+    ├── sequence-init.puml
     └── sequence-shutdown.puml
 ```
 

@@ -25,6 +25,7 @@
 
 #include <CLI/CLI.hpp>
 
+#include <lsw/core/bootstrap.hpp>
 #include <lsw/core/config.hpp>
 #include <lsw/core/error.hpp>
 #include <lsw/core/process.hpp>
@@ -466,6 +467,14 @@ int main(int argc, char **argv) {
     app.add_flag("--save-password", save_password,
                  "把交互输入的 Windows 密码保存到系统 keyring");
 
+    bool init_yes = false;
+    bool init_dry_run = false;
+    auto *init_command =
+        app.add_subcommand("init", "初始化 LSW 配置并检测/安装系统依赖");
+    init_command->add_flag("--yes", init_yes, "跳过安装确认（用于自动化）");
+    init_command->add_flag("--dry-run", init_dry_run,
+                           "只检测并打印安装计划，不执行变更");
+
     auto *install_command =
         app.add_subcommand("install", "引导安装 Windows（等价于 --install）");
     install_command->add_option("--iso", iso, "Windows ISO 路径");
@@ -508,8 +517,8 @@ int main(int argc, char **argv) {
     std::vector<std::string> extras = app.remaining();
     // CLI11 子命令的剩余位置参数不会进入父 App.remaining()，逐个收集。
     for (auto *sub :
-         {install_command, start_command, shutdown_command, mount_command,
-          unmount_command, shell_command, status_command}) {
+         {init_command, install_command, start_command, shutdown_command,
+          mount_command, unmount_command, shell_command, status_command}) {
         if (sub != nullptr && sub->parsed()) {
             const auto sub_extras = sub->remaining();
             extras.insert(extras.end(), sub_extras.begin(), sub_extras.end());
@@ -613,6 +622,23 @@ int main(int argc, char **argv) {
         return run_daemon_command(*paths, "shutdown");
     }
 
+    if (init_command->parsed()) {
+        if (!extras.empty()) {
+            std::cerr << "lsw init 不接受额外位置参数\n";
+            return lsw::to_exit_code(lsw::ErrorCode::kInvalidArgument);
+        }
+        auto paths = lsw::resolve_paths(lsw::PathEnvironment::from_process());
+        if (!paths) {
+            return report_error(paths.error());
+        }
+        lsw::bootstrap::Options options;
+        options.assume_yes = init_yes;
+        options.dry_run = init_dry_run;
+        if (auto status = lsw::bootstrap::run(*paths, options); !status) {
+            return report_error(status.error());
+        }
+        return 0;
+    }
     if (status_command->parsed()) {
         if (!extras.empty()) {
             std::cerr << "lsw status 不接受额外位置参数\n";
