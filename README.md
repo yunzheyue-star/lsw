@@ -1,10 +1,41 @@
 # LSW · Linux Subsystem for Windows
 
+> **专注反向输出，给 Linux 喂 Windows 的 💩**
+>
+> *"既然微软能给 Linux 喂巧克力（WSL），那我们凭什么不能给 Linux 喂点硬核的💩？"*
+
 ![C++26](https://img.shields.io/badge/C%2B%2B-26-blue)
 ![CMake](https://img.shields.io/badge/CMake-%E2%89%A5%203.25-blue)
 ![Platform](https://img.shields.io/badge/platform-Linux%20%2B%20KVM-lightgrey)
-![Status](https://img.shields.io/badge/status-1.0%20release%20candidate-orange)
+![Status](https://img.shields.io/badge/status-1.0.0-brightgreen)
 ![License](https://img.shields.io/badge/license-MIT-green)
+![Tests](https://img.shields.io/badge/tests-131%2F131%20passed-brightgreen)
+
+---
+
+## 🤔 这到底是什么玩意儿？
+
+欢迎来到 **LSW (Linux Subsystem for Windows)**。
+这不是微软的恩赐，这是 Linux 原住民的绝地反击。
+
+WSL 是 Windows 试图在内部消解 Linux；而 LSW，是 Linux 对 Windows 的降维包容。我们用极其严谨的 C++26 标准、非阻塞 Socket、QMP 协议交互，并跑通了 131 个单元/集成测试，只为了完成一个极其抽象的终极目标：**在 Linux 上拉起 QEMU/KVM，跑一个 Windows 虚拟机，并强行管它叫“子系统”。**
+
+你问我这东西有什么用？没关系，问就是**俄罗斯套娃**：
+> 你在 LSW 里跑 Windows，Windows 里跑 WSL，套到最后你得到了一个 Linux。
+> 恭喜你，你完成了计算机科学史上的《盗梦空间》，CPU 直呼内行，内存条高呼救命。
+
+---
+
+## 💩 免责声明（必读）
+
+*   **关于性能**：我们保证了 IPC 通信的绝对优雅和并发状态的一致性（通过 131 个测试），但 Windows 虚拟机卡不卡？我不到啊。毕竟我只负责喂💩，不负责消化。
+*   **关于生态**：目前是 1.0.0 初版，没有 WSLg 那种高级图形功能。想用图形界面？建议自己看着 Looking Glass 的 GPLv2 协议发呆。
+*   **关于协议**：本项目采用 MIT 协议，主打一个自由。如果自由软件基金会（FSF）觉得我们和 GPL 代码隔着 Unix Socket 说话也算链接，那我们就多开几个 Socket，套死他们。
+
+> **⚠️ 警告**：本项目包含大量乐子人特有的脑干缺失设计。如果你在体验过程中感到智商被侮辱，或者遭遇系统崩溃、蓝屏甚至宇宙重启，纯属正常现象。
+> **“用最顶级的系统编程，写最抽象的代码。”**
+
+---
 
 > **在 Linux 终端里运行 Windows。**
 > LSW 用 KVM/QEMU 启动 Windows，用 OpenSSH 把 PowerShell 接进 Linux 终端，用 Samba/CIFS 打通文件系统，提供接近 WSL2 的使用体验。
@@ -15,6 +46,8 @@
 
 ## 目录
 
+- [这到底是什么玩意儿？](#这到底是什么玩意儿)
+- [免责声明（必读）](#免责声明必读)
 - [特性](#特性)
 - [系统要求](#系统要求)
 - [普通用户：快速开始](#普通用户快速开始)
@@ -152,7 +185,7 @@ sudo make -C build uninstall    # 干净卸载
 在 GitHub 的 Releases 或 Actions artifacts 中下载 `lsw-<version>.tar.xz`：
 
 ```bash
-tar -xJf lsw-0.1.0.tar.xz
+tar -xJf lsw-1.0.0.tar.xz
 cd lsw-0.1.0
 
 cmake -S . -B build -G "Unix Makefiles" \
@@ -670,6 +703,15 @@ ctest --test-dir build --output-on-failure
 
 关闭测试可加 `-DBUILD_TESTING=OFF`。
 
+覆盖率：
+
+```bash
+bash scripts/coverage.sh
+```
+
+该脚本会构建 `build-coverage`、运行 ctest、用 gcovr（未安装时用 gcov JSON 回退）输出行覆盖率，
+默认阈值：`src/core ≥ 50%`、`src/ipc ≥ 70%`、`src/vm ≥ 70%`、总体 ≥ 55%。
+
 ### 打包 `.tar.xz`
 
 GitHub Actions 工作流 `.github/workflows/package-tar-xz.yml` 会在推送 `v*` tag 或手动触发时：
@@ -690,6 +732,13 @@ ls -lh build/lsw-*.tar.xz
 
 ### 验收脚本
 
+P9 最终验收：
+
+```bash
+bash scripts/verify-p9.sh                  # 自动：构建/ctest/覆盖率/文档/审计/回归
+LSW_P9_REAL=1 bash scripts/verify-p9.sh    # 追加真机 5 命令 E2E
+```
+
 仓库为每个阶段提供了一键验收脚本：
 
 | 脚本 | 内容 |
@@ -699,7 +748,11 @@ ls -lh build/lsw-*.tar.xz
 | `scripts/verify-status.sh` | `lsw status` 离线/运行时验收 |
 | `scripts/verify-init.sh` | `lsw init` dry-run 与依赖检测验收 |
 | `scripts/verify-uninstall.sh` | `lsw uninstall` keep/purge 计划验收 |
-| `scripts/lsw-p6-real-test.sh` | host Samba / CIFS / Z: 真机验收 |
+| `scripts/verify-docs.sh` | P9 文档/命令/端口/图一致性检查 |
+| `scripts/audit-security.sh` | P9 安全与合规审计 |
+| `scripts/coverage.sh` | P9 行覆盖率报告与阈值检查 |
+| `scripts/verify-p9.sh` | P9 自动验收汇总（LSW_P9_REAL=1 时追加真机 E2E） |
+| `scripts/lsw-p9-real-test.sh` | P9 真机 5 命令验收（start/status/shell/exec/shutdown） |
 | `scripts/post-install.ps1` | Windows 内组件检查脚本 |
 
 运行示例：
@@ -804,7 +857,7 @@ bash scripts/verify-p0.sh
 bash scripts/verify-p8.sh
 ```
 
-真实 QEMU/KVM 环境再运行 `scripts/lsw-p6-real-test.sh` 与 `lsw start` / `lsw shell` 手工验收。
+真实 QEMU/KVM 环境运行 `scripts/lsw-p9-real-test.sh`，或 `LSW_P9_REAL=1 bash scripts/verify-p9.sh` 完成 5 命令真机验收。
 
 ---
 
@@ -864,7 +917,7 @@ lsw CLI ── Unix Socket JSON ──► lswd
 - [x] 扩展：`lsw install` 子命令别名
 - [x] 扩展：`lsw init`
 - [x] 扩展：`lsw uninstall`
-- [ ] P9 系统测试与 1.0 收口
+- [x] P9 系统测试与 1.0 收口（真机 6/6、覆盖率/文档/安全审计全绿）
 
 ---
 

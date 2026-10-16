@@ -1,11 +1,22 @@
 # C++26 需要 CMake >= 3.25（对齐 agent.md 基线）
 cmake_minimum_required(VERSION 3.25)
-project(lsw VERSION 0.1.0 LANGUAGES C CXX)
+project(lsw VERSION 1.0.0 LANGUAGES C CXX)
 
 # 统一标准：C++26（对齐 PROMPT.md）
 set(CMAKE_CXX_STANDARD 26)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
+
+# 可选覆盖率构建：-DLSW_ENABLE_COVERAGE=ON
+option(LSW_ENABLE_COVERAGE "Build with gcov coverage flags" OFF)
+if(LSW_ENABLE_COVERAGE)
+    if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+        add_compile_options(--coverage -O0 -g)
+        add_link_options(--coverage)
+    else()
+        message(FATAL_ERROR "LSW_ENABLE_COVERAGE 仅支持 GCC/Clang")
+    endif()
+endif()
 
 # ===== 第三方依赖 =====
 # 共享依赖源码缓存：不同构建目录（含验收脚本的临时构建）复用同一份，避免重复下载

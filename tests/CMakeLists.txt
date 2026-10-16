@@ -6,7 +6,7 @@
 # ===== 冒烟测试 =====
 add_test(NAME lsw_smoke COMMAND $<TARGET_FILE:lsw> --version)
 set_tests_properties(lsw_smoke PROPERTIES
-    PASS_REGULAR_EXPRESSION "lsw 0\\.1\\.0"
+    PASS_REGULAR_EXPRESSION "lsw 1\\.0\\.0"
     LABELS "smoke"
 )
 

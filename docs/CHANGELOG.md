@@ -2,7 +2,12 @@
 
 本文件记录 LSW 的所有重要变更。格式参考 Keep a Changelog，版本号遵循 Semantic Versioning，当前尚未发布。
 
-## [Unreleased]
+## [1.0.0] - 2026-10-17
+
+首个正式版本：`lsw` / `lswd` / KVM/QEMU / SSH / Samba 全链路可用；
+支持 init / install / start / shell / exec / status / mount / shutdown / uninstall 与 `.tar.xz` 打包。
+
+P9 收口：真机 5 命令 6/6 通过；覆盖率、文档对齐、安全审计全绿；`ctest` 131/131。
 
 ### 新增
 

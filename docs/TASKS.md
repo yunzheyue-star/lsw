@@ -25,13 +25,13 @@
 | P6 | 文件系统（Z: / CIFS） | 12% | [x] |
 | P7 | `lsw shell` 桥接 | 8% | [x] |
 | P8 | `lsw <program>` 执行（.exe/.bat/.cmd） | 5% | [x] |
-| P9 | 系统测试与 1.0 收口 | 10% | [ ] |
+| P9 | 系统测试与 1.0 收口 | 10% | [x] |
 | P10 | `lsw status`（扩展） | — | [x] |
 | P11 | `lsw install` 子命令别名（扩展） | — | [x] |
 | P12 | `lsw init` 环境初始化（扩展） | — | [x] |
-| P13 | `lsw uninstall` 卸载（扩展） | — | [ ] |
-| P14 | 打包与 `make install/uninstall`（扩展） | — | [ ] |
-| **合计** | | **100%** | 当前 **90%**（P9 完成后 100%，P10 为扩展） |
+| P13 | `lsw uninstall` 卸载（扩展） | — | [x] |
+| P14 | 打包与 `make install/uninstall`（扩展） | — | [x] |
+| **合计** | | **100%** | 当前 **100%**（P10~P14 为扩展功能） |
 
 ## 权重分布
 
@@ -200,7 +200,7 @@ bash scripts/verify-p6.sh
 
 ### P6 真机验收记录
 
-- 2026-10-16：`bash scripts/lsw-p6-real-test.sh` 真机 **30/30 通过，0 失败，0 跳过**；`Z: → \\10.0.2.2\qemu` 可 `Set-Location` 并列出 Linux 家目录；`/mnt/Windows/C` 读写通过。
+- 2026-10-16：P6 真机验收（历史脚本，1.0.0 已移除）**30/30 通过，0 失败，0 跳过**；`Z: → \\10.0.2.2\qemu` 可 `Set-Location` 并列出 Linux 家目录；`/mnt/Windows/C` 读写通过。
 - 架构结论与定位过程详见 [`docs/P6-回顾.md`](P6-回顾.md)。
 
 ## P7 · `lsw shell` 桥接（8%，已完成）
@@ -272,15 +272,50 @@ exit /b 0
 - 问题定位与修复详见 [`docs/P8-回顾.md`](P8-回顾.md)。
 
 
-## P9 · 系统测试与 1.0 收口（10%）
+## P9 · 系统测试与 1.0 收口（10%，已完成）
 
 | 编号 | 任务 | 交付物 / 验收标准 | 依赖 | 权重 | 状态 |
 | --- | --- | --- | --- | ---: | :---: |
-| P9-1 | 单元测试补全 | core / ipc / qmp（mock QEMU）覆盖率达标；`ctest` 全绿 | P1~P8 | 3% | [ ] |
-| P9-2 | 集成 / E2E | 真机 QEMU 验收 5 个核心命令；`--install` 人工步骤清单脚本化 | P4~P8 | 3% | [ ] |
-| P9-3 | 文档全量对齐 | 接口 / 图 / CHANGELOG / TASKS 状态一致；PlantUML 实际渲染复核 | P9-2 | 2% | [ ] |
-| P9-4 | 安全与合规审计 | 不提供 ISO、无明文密码、helper 最小权限、无 shell 注入、不越权 KVM | P6、P9-2 | 1% | [ ] |
-| P9-5 | DoD 终验与发布 | 勾选 `agent.md` Definition of Done；打 `v1.0.0`；CHANGELOG 归档 | P9-4 | 1% | [ ] |
+| P9-1 | 单元测试补全 | core / ipc / qmp（mock QEMU）覆盖率达标；`ctest` 全绿 | P1~P8 | 3% | [x] |
+| P9-2 | 集成 / E2E | 真机 QEMU 验收 5 个核心命令；`--install` 人工步骤清单脚本化 | P4~P8 | 3% | [x] |
+| P9-3 | 文档全量对齐 | 接口 / 图 / CHANGELOG / TASKS 状态一致；PlantUML 实际渲染复核 | P9-2 | 2% | [x] |
+| P9-4 | 安全与合规审计 | 不提供 ISO、无明文密码、helper 最小权限、无 shell 注入、不越权 KVM | P6、P9-2 | 1% | [x] |
+| P9-5 | DoD 终验与发布 | 勾选 `agent.md` Definition of Done；打 `v1.0.0`；CHANGELOG 归档 | P9-4 | 1% | [x] |
+
+### P9 验收方式
+
+```bash
+# 自动：构建、ctest、覆盖率、文档对齐、安全审计、P0~P8 回归
+bash scripts/verify-p9.sh
+
+# 真机：start / status / shell / exec / shutdown 五命令
+LSW_P9_REAL=1 bash scripts/verify-p9.sh
+```
+
+覆盖率口径（`scripts/coverage.sh`）：
+
+- `src/core` 行覆盖率 ≥ 50%
+- `src/ipc` 行覆盖率 ≥ 70%
+- `src/vm`（含 QMP）行覆盖率 ≥ 70%
+- 总体行覆盖率 ≥ 55%
+
+### P9 Definition of Done 对照
+
+- [x] 代码可构建（`cmake --build`）
+- [x] 单元测试通过（`ctest`）
+- [x] 新命令/接口有文档（`verify-docs.sh`）
+- [x] 调用关系图与实际模块一致（`verify-docs.sh` + PlantUML 结构）
+- [x] 不提供 Windows ISO（`audit-security.sh`）
+- [x] 不引入明文密码（`audit-security.sh`）
+- [x] `lsw shell` 不新开窗口（`execvp` + 真机验收）
+- [x] `lsw <program>` 返回正确退出码（单测 + 真机 E2E）
+
+### P9 真机验收记录
+
+- 2026-10-17：真机 5 命令 E2E **6/6 通过**：`start`、`status`、`shell`、`<program>`（含退出码 0 与非零 7 透传）、`shutdown`；
+- 覆盖率：总体 56.78%、`src/core` 50.33%、`src/ipc` 70.11%、`src/vm` 71.13%，均达到 `scripts/coverage.sh` 阈值；
+- 文档对齐 64 项通过、安全审计 15 项通过；`--install` 人工步骤清单已脚本化在 `scripts/lsw-p9-real-test.sh`；
+- `ctest` 131/131，P0~P8 与扩展功能回归全绿。
 
 ## P10 · `lsw status` 状态查询（扩展功能）
 
@@ -408,7 +443,7 @@ make -C <extracted>/build uninstall
 
 ### P14 验收记录
 
-- 本地 `cmake --build build --target package_source` 生成 `lsw-0.1.0.tar.xz`，已确认含 `CMakeLists.txt`、`README.md`、`LICENSE`、源码、脚本与文档，且不包含 `build*/`、`.dsh/`、`persona/`；
+- 本地 `cmake --build build --target package_source` 生成 `lsw-1.0.0.tar.xz`，已确认含 `CMakeLists.txt`、`README.md`、`LICENSE`、源码、脚本与文档，且不包含 `build*/`、`.dsh/`、`persona/`；
 - 解压后用 `Unix Makefiles` 构建、`make -C build install` 安装 `bin/lsw`、`bin/lswd`、`lib/lsw/helper`、`share/doc/lsw/LICENSE`，`make -C build uninstall` 后 LSW 文件与专属空目录全部清除；
 - GitHub Actions 工作流已加入，待推送仓库后首次运行确认。
 

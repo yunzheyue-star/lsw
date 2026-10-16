@@ -118,7 +118,7 @@ fi
 # ---------- CLI 行为 ----------
 section "CLI 行为"
 version_output="$(./build/lsw --version 2>&1)"
-if printf '%s' "$version_output" | grep -q "lsw 0.1.0"; then
+if printf '%s' "$version_output" | grep -q "lsw 1.0.0"; then
   ok "lsw --version 输出正确"
 else
   ng "lsw --version 输出异常：$version_output"
