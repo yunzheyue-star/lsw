@@ -94,6 +94,10 @@ class DaemonService {
     /// @param args 命令参数（保留扩展）。
     /// @return 命令结果 JSON。
     [[nodiscard]] Result<nlohmann::json> on_unmount(const nlohmann::json &args);
+    /// @brief 处理 shell 命令：把 cwd 映射为 ssh/powershell 参数。
+    /// @param args 命令参数，必须含 cwd。
+    /// @return 成功返回 { ssh_args: [...] }；VM 未运行返回 kVMNotRunning。
+    [[nodiscard]] Result<nlohmann::json> on_shell(const nlohmann::json &args);
 
     /// @brief 尝试通过 SSH 关闭虚拟机。
     void try_ssh_shutdown();

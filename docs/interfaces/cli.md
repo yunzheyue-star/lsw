@@ -67,11 +67,16 @@
 | --- | --- |
 | `$HOME` | 进入 PowerShell 默认路径 |
 | `$HOME` 之下（如 `~/Project/demo`） | 映射为 `Z:\Project\demo` 并 `Set-Location` |
-| 不在 `$HOME` 下 | 报错并提示进入 `$HOME` 下的目录，或使用临时复制策略 |
+| 不在 `$HOME` 下 | 返回 `PATH_OUTSIDE_HOME`（退出码 5），提示进入 `$HOME` 下的目录或使用 P8 临时复制策略 |
 
-执行方式：`execvp` 替换当前进程，运行 `ssh -t -p 2222 "$WINDOWS_USER"@127.0.0.1 -- powershell.exe -NoLogo -NoExit`。`$WINDOWS_USER` 取 `config.user.windows_user`，默认 `lsw`（`PROMPT.md` 中的 `user` 即此字段）。
+流程（P7 已实现）：
 
-退出码：`0`、`5`、`6`。
+1. CLI 读取当前 Linux 工作目录，通过 IPC `shell { cwd }` 询问 `lswd`；
+2. `lswd` 检查 VM 正在运行（否则 `VM_NOT_RUNNING`，退出码 6），把 `cwd` 映射为 `Z:`；`$HOME` 本身返回默认路径；
+3. `lswd` 返回 `ssh_args`：`ssh -t -p 2222 -o StrictHostKeyChecking=accept-new "$WINDOWS_USER"@127.0.0.1 -- powershell.exe -NoLogo -NoExit -EncodedCommand <base64>`；编码脚本在同一个 SSH/PowerShell 会话内先 `net use Z: \\10.0.2.2\qemu`，再按需 `Set-Location`；
+4. CLI 用 `execvp` 替换当前进程执行 `ssh`，退出后回到原 shell，退出码透传；`PATH` 与 argv 均不经过 shell 拼接。
+
+退出码：`0`、`5`（路径越界）、`6`（VM 未运行、SSH/认证失败）。
 
 ### `lsw test.exe [args...]`
 

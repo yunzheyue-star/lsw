@@ -192,6 +192,8 @@ std::string to_ipc_error_code(ErrorCode code) noexcept {
         return std::string(kNotImplemented);
     case ErrorCode::kPathMappingFailed:
         return std::string(kPathOutsideHome);
+    case ErrorCode::kVMNotRunning:
+        return std::string(kVMNotRunning);
     case ErrorCode::kSshFailed:
         return std::string(kSshFailed);
     case ErrorCode::kIoError:
@@ -228,6 +230,8 @@ ErrorCode from_ipc_error_code(std::string_view code) noexcept {
         return ErrorCode::kNotImplemented;
     if (code == kPathOutsideHome)
         return ErrorCode::kPathMappingFailed;
+    if (code == kVMNotRunning)
+        return ErrorCode::kVMNotRunning;
     if (code == kSshFailed)
         return ErrorCode::kSshFailed;
     if (code == kMountFailed)

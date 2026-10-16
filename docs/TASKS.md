@@ -23,10 +23,10 @@
 | P4 | `lsw --install` | 10% | [x] |
 | P5 | `lsw start` / `lsw shutdown` | 10% | [x] |
 | P6 | 文件系统（Z: / CIFS） | 12% | [x] |
-| P7 | `lsw shell` 桥接 | 8% | [ ] |
+| P7 | `lsw shell` 桥接 | 8% | [x] |
 | P8 | `lsw test.exe` 执行 | 5% | [ ] |
 | P9 | 系统测试与 1.0 收口 | 10% | [ ] |
-| **合计** | | **100%** | 当前 **77%** |
+| **合计** | | **100%** | 当前 **85%** |
 
 ## 权重分布
 
@@ -198,14 +198,35 @@ bash scripts/verify-p6.sh
 - 2026-10-16：`bash scripts/lsw-p6-real-test.sh` 真机 **30/30 通过，0 失败，0 跳过**；`Z: → \\10.0.2.2\qemu` 可 `Set-Location` 并列出 Linux 家目录；`/mnt/Windows/C` 读写通过。
 - 架构结论与定位过程详见 [`docs/P6-回顾.md`](P6-回顾.md)。
 
-## P7 · `lsw shell` 桥接（8%）
+## P7 · `lsw shell` 桥接（8%，已完成）
 
 | 编号 | 任务 | 交付物 / 验收标准 | 依赖 | 权重 | 状态 |
 | --- | --- | --- | --- | ---: | :---: |
-| P7-1 | shell IPC | CLI 上报 `cwd`；daemon 返回 `ssh_args`；`$HOME` 外返回 `PATH_OUTSIDE_HOME` | P2、P6 | 2% | [ ] |
-| P7-2 | SSH 命令构造 | `ssh -t -p 2222 windows_user@127.0.0.1 -- powershell.exe ...`；参数不经 shell 拼接 | P7-1 | 2% | [ ] |
-| P7-3 | `execvp` 接管终端 | 替换当前进程、不新开窗口、退出后回原 shell、退出码透传；交互式验收 | P7-2 | 3% | [ ] |
-| P7-4 | 边界场景 | `$HOME` 默认路径、空格/中文/深层目录、`$HOME` 外提示与临时复制策略 | P7-3 | 1% | [ ] |
+| P7-1 | shell IPC | CLI 上报 `cwd`；daemon 返回 `ssh_args`；`$HOME` 外返回 `PATH_OUTSIDE_HOME`；VM 未运行返回 `VM_NOT_RUNNING` | P2、P6 | 2% | [x] |
+| P7-2 | SSH 命令构造 | `ssh -t -p 2222 windows_user@127.0.0.1 -- powershell.exe -NoLogo -NoExit -EncodedCommand ...`；参数不经 shell 拼接；编码脚本内含 Z: 映射 + Set-Location | P7-1 | 2% | [x] |
+| P7-3 | `execvp` 接管终端 | 替换当前进程、不新开窗口、退出后回原 shell、退出码透传；交互式验收 | P7-2 | 3% | [x] |
+| P7-4 | 边界场景 | `$HOME` 默认路径、空格/中文/深层目录、`$HOME` 外提示（PATH_OUTSIDE_HOME）；临时复制策略留待 P8 | P7-3 | 1% | [x] |
+
+### P7 验收方式（一键）
+
+```bash
+bash scripts/verify-p7.sh
+```
+
+预期：构建与 `ctest` 通过；shell 单测覆盖 `$HOME`/子目录/越界/ssh argv；假 QEMU + 假 ssh E2E 验证 `lsw shell` 与裸 `lsw` 均以 `execvp` 执行，`EncodedCommand` 内含 `net use Z:` 与 `Set-Location Z:\Project\demo`，`$HOME` 外返回退出码 5。
+
+### P7 真机交互验收
+
+1. `lsw start` 后执行 `cd ~/Project/demo && lsw`，PowerShell 应位于 `Z:\Project\demo`；
+2. 在 `~` 执行 `lsw`，应进入 PowerShell 默认路径；
+3. 在 `$HOME` 外执行 `lsw`，应返回 `PATH_OUTSIDE_HOME`（退出码 5）；
+4. `exit` 退出 PowerShell 后应回到原 Linux shell，且不新开窗口。
+
+### P7 真机验收记录
+
+- 2026-10-16：主人真机交互验收通过（子目录进入 `Z:\...`、`$HOME` 默认路径、`$HOME` 外退出码 5、`exit` 回原 shell、不新开窗口）；
+- 自动化：`bash scripts/verify-p7.sh` **36/36 通过**，`ctest` **108/108 通过**；P4/P5/P6 回归仍全绿。
+
 
 ## P8 · `lsw test.exe` 执行（5%）
 

@@ -6,6 +6,7 @@
 
 ### 新增
 
+- P7 `lsw shell`：CLI 上报 `cwd`，daemon 经 `map_cwd_to_z` 生成含 `net use Z:` + `Set-Location` 的 EncodedCommand `ssh_args`；CLI `execvp` 接管终端，`$HOME` 外返回 `PATH_OUTSIDE_HOME`，VM 未运行返回 `VM_NOT_RUNNING`；新增 `scripts/verify-p7.sh`。
 - P6 复盘文档：[`docs/P6-回顾.md`](P6-回顾.md)（QEMU user SMB → host root Samba 的演进、真机 30/30 验收与经验教训）。
 
 - 工程基线：CMake 目标 `lsw`、CTest 冒烟测试 `lsw_smoke`。
@@ -26,7 +27,7 @@
 - swtpm 可选检测与 TPM 设备参数；OVMF/KVM 依赖校验。
 - 测试替身 `tests/integration/fake_qemu.cpp`、真实 QMP 探针 `qmp_probe.cpp` 与 P3 验收脚本 `scripts/verify-p3.sh`；单元/集成测试增至 65 例。
 - `Installer`（P4）：依赖检查与修复建议、ISO 交互/校验（不下载不内置）、`qemu-img` 创建 qcow2、OVMF_VARS 模板复制、安装模式执行与安装后指引。
-- CLI：CLI11 接入 `lsw --install` / `--iso` / `--virtio-iso` / `--disk` / `--version` / `--help`；裸 `lsw` 暂提示 P7 实现。
+- CLI：CLI11 接入 `lsw --install` / `--iso` / `--virtio-iso` / `--disk` / `--version` / `--help`；P7 起裸 `lsw` 与 `lsw shell` 由 `run_shell_command` 经 `execvp ssh -t` 接管终端。
 - `scripts/post-install.ps1`：Windows 内 OpenSSH / QEMU Guest Agent / SMB / `Z:` 检查。
 - 测试替身支持 `LSW_FAKE_QEMU_AUTO_QUIT_MS`，安装流程集成探针 `lsw_install_probe` 与 P4 验收脚本 `scripts/verify-p4.sh`；测试增至 72 例。
 - `DaemonService`（P5）：`lsw start` 拉起 lswd/QEMU 并等待 SSH 2222，`lsw shutdown` 优先 SSH 关机、QMP/信号兜底，清理 `qmp.sock`/`qga.sock` 并让 lswd 退出；start/shutdown 幂等且并发安全。

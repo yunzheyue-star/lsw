@@ -69,6 +69,8 @@ std::string_view to_string(ErrorCode code) noexcept {
         return "ShareSetupFailed";
     case ErrorCode::kPermissionDenied:
         return "PermissionDenied";
+    case ErrorCode::kVMNotRunning:
+        return "VMNotRunning";
     }
     return "Unknown";
 }
@@ -102,6 +104,8 @@ int to_exit_code(ErrorCode code) noexcept {
     case ErrorCode::kShareSetupFailed:
     case ErrorCode::kPermissionDenied:
         return 8;
+    case ErrorCode::kVMNotRunning:
+        return 6;
     case ErrorCode::kInternal:
         return 1;
     case ErrorCode::kIoError:

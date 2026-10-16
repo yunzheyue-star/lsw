@@ -42,6 +42,7 @@ enum class ErrorCode {
     kUnmountFailed = 20,
     kShareSetupFailed = 21,
     kPermissionDenied = 22,
+    kVMNotRunning = 23,
 };
 
 struct Error {

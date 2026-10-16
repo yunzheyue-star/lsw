@@ -8,8 +8,10 @@
  * @date 2026-10-14
  */
 
+#include <cerrno>
 #include <chrono>
 #include <cstdlib>
+#include <cstring>
 #include <filesystem>
 #include <iostream>
 #include <optional>
@@ -193,6 +195,63 @@ int run_daemon_command(const lsw::XdgPaths &paths, const std::string &command,
     return 0;
 }
 
+/// @brief 进入 Windows PowerShell：读取 cwd → IPC shell → execvp ssh。
+/// @param paths 当前用户 XDG 路径。
+/// @return 仅在失败时返回退出码；成功时进程已被 ssh 替换。
+int run_shell_command(const lsw::XdgPaths &paths) {
+    std::error_code error;
+    const auto cwd = std::filesystem::current_path(error);
+    if (error) {
+        return report_error(
+            lsw::make_error(lsw::ErrorCode::kPathMappingFailed,
+                            "无法获取当前目录: " + error.message()));
+    }
+    if (auto status = ensure_daemon(paths); !status) {
+        return report_error(status.error());
+    }
+
+    lsw::ipc::ClientOptions options;
+    options.socket_path = paths.runtime_dir / "lswd.sock";
+    options.connect_timeout = std::chrono::seconds(1);
+    options.io_timeout = std::chrono::seconds(60);
+    lsw::ipc::Client client(options);
+    auto result = client.call("shell", nlohmann::json{{"cwd", cwd.string()}});
+    if (!result) {
+        return report_error(result.error());
+    }
+    if (!result->contains("ssh_args") || !(*result)["ssh_args"].is_array()) {
+        return report_error(
+            lsw::make_error(lsw::ErrorCode::kProtocolError,
+                            "lswd 返回的 shell 响应缺少 ssh_args"));
+    }
+    std::vector<std::string> args;
+    for (const auto &item : (*result)["ssh_args"]) {
+        if (!item.is_string()) {
+            return report_error(
+                lsw::make_error(lsw::ErrorCode::kProtocolError,
+                                "lswd 返回的 ssh_args 含非字符串元素"));
+        }
+        args.push_back(item.get<std::string>());
+    }
+    if (args.empty()) {
+        return report_error(lsw::make_error(lsw::ErrorCode::kProtocolError,
+                                            "lswd 返回的 ssh_args 为空"));
+    }
+
+    std::vector<char *> raw;
+    raw.reserve(args.size() + 1);
+    for (auto &arg : args) {
+        raw.push_back(arg.data());
+    }
+    raw.push_back(nullptr);
+    ::execvp(raw.front(), raw.data());
+    const int saved = errno;
+    const auto code = saved == ENOENT ? lsw::ErrorCode::kMissingDependency
+                                      : lsw::ErrorCode::kSshFailed;
+    return report_error(lsw::make_error(code, "无法执行 " + args.front() +
+                                                  ": " + std::strerror(saved)));
+}
+
 } // namespace
 
 /// @brief lsw CLI 入口，解析并执行 install/start/shutdown 命令。
@@ -232,6 +291,8 @@ int main(int argc, char **argv) {
         app.add_subcommand("mount", "挂载 Windows C$/D$ 到 /mnt/Windows");
     auto *unmount_command =
         app.add_subcommand("unmount", "卸载 /mnt/Windows 下的 Windows 共享");
+    auto *shell_command =
+        app.add_subcommand("shell", "进入 Windows PowerShell 终端");
 
     try {
         app.parse(argc, argv);
@@ -325,9 +386,14 @@ int main(int argc, char **argv) {
         return run_daemon_command(*paths, "shutdown");
     }
 
-    std::cerr << "lsw: shell 功能将在 P7 实现；当前可用命令：\n"
-              << "  lsw --install   lsw start   lsw shutdown   lsw mount   "
-                 "lsw unmount\n";
+    if (shell_command->parsed() || argc == 1) {
+        auto paths = lsw::resolve_paths(lsw::PathEnvironment::from_process());
+        if (!paths) {
+            return report_error(paths.error());
+        }
+        return run_shell_command(*paths);
+    }
+    std::cerr << "lsw: 未识别的命令\n";
     std::cout << app.help();
-    return lsw::to_exit_code(lsw::ErrorCode::kNotImplemented);
+    return lsw::to_exit_code(lsw::ErrorCode::kInvalidArgument);
 }

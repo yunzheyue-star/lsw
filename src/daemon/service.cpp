@@ -22,6 +22,7 @@
 #include <lsw/fs/host_smb.hpp>
 #include <lsw/fs/mount.hpp>
 #include <lsw/fs/z_mapping.hpp>
+#include <lsw/shell/powershell.hpp>
 #include <lsw/util/log.hpp>
 #include <lsw/util/net.hpp>
 
@@ -216,10 +217,12 @@ Result<nlohmann::json> DaemonService::handle(const std::string &command,
     if (command == "unmount") {
         return on_unmount(args);
     }
-    if (command == "shell" || command == "exec") {
+    if (command == "shell") {
+        return on_shell(args);
+    }
+    if (command == "exec") {
         (void)args;
-        return fail(ErrorCode::kNotImplemented,
-                    command + " 命令将在后续阶段实现");
+        return fail(ErrorCode::kNotImplemented, "exec 命令将在 P8 实现");
     }
     return fail(ErrorCode::kUnknownCommand, "未知命令: " + command);
 }
@@ -409,6 +412,38 @@ Result<nlohmann::json> DaemonService::on_mount(const nlohmann::json &args) {
 /** @brief 处理 unmount 命令：清空挂载点。
  * @return 清空后的挂载点列表 JSON。
  */
+
+/** @brief 处理 shell 命令：把 cwd 映射为 ssh/powershell 参数。
+ * @param args 命令参数，必须含 cwd。
+ * @return 成功返回 { ssh_args: [...] }；VM 未运行返回 kVMNotRunning。
+ */
+Result<nlohmann::json> DaemonService::on_shell(const nlohmann::json &args) {
+    std::lock_guard lock(mutex_);
+    if (!vm_.has_value() || !vm_->running()) {
+        return fail(ErrorCode::kVMNotRunning,
+                    "Windows 虚拟机未运行，请先执行 lsw start");
+    }
+    if (!args.contains("cwd") || !args["cwd"].is_string()) {
+        return fail(ErrorCode::kInvalidArgument,
+                    "shell 命令缺少字符串参数 cwd");
+    }
+    const std::filesystem::path cwd = args["cwd"].get<std::string>();
+    auto home = expand_tilde(config_.filesystem.linux_home_share,
+                             PathEnvironment::from_process());
+    if (!home) {
+        return std::unexpected(home.error());
+    }
+    if (home->empty()) {
+        return fail(ErrorCode::kInvalidArgument,
+                    "无法确定 Linux $HOME，无法映射 cwd");
+    }
+    auto ssh_args = shell::build_ssh_args(
+        config_, cwd, *home, options_.z_mapping_options.ssh_binary);
+    if (!ssh_args) {
+        return std::unexpected(ssh_args.error());
+    }
+    return nlohmann::json{{"ssh_args", *ssh_args}};
+}
 /// @brief 处理 unmount 命令：卸载挂载根下全部 CIFS 挂载点。
 /// @param args 命令参数（保留扩展）。
 /// @return 清空后的挂载点列表 JSON。

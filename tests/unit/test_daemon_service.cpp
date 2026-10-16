@@ -144,7 +144,43 @@ TEST_CASE("DaemonService shutdown 幂等并触发退出", "[daemon]") {
 TEST_CASE("DaemonService 未实现命令与未知命令", "[daemon]") {
     Fixture fixture;
     DaemonService service(fixture.config, fixture.paths, fixture.options());
-    CHECK(service.handle("shell").error().code == ErrorCode::kNotImplemented);
+    CHECK(service.handle("shell", nlohmann::json{{"cwd", "/"}}).error().code ==
+          ErrorCode::kVMNotRunning);
     CHECK(service.handle("exec").error().code == ErrorCode::kNotImplemented);
     CHECK(service.handle("nope").error().code == ErrorCode::kUnknownCommand);
+}
+
+TEST_CASE("DaemonService shell 返回 ssh_args 并限制在 $HOME 内",
+          "[daemon][shell]") {
+    Fixture fixture;
+    fixture.config.filesystem.linux_home_share = fixture.temp.path() / "home";
+    std::filesystem::create_directories(
+        fixture.config.filesystem.linux_home_share / "Project/demo");
+
+    DaemonService service(fixture.config, fixture.paths, fixture.options());
+    REQUIRE(service.handle("start").has_value());
+
+    const auto inside = service.handle(
+        "shell",
+        nlohmann::json{{"cwd", (fixture.config.filesystem.linux_home_share /
+                                "Project/demo")
+                                   .string()}});
+    REQUIRE(inside.has_value());
+    REQUIRE((*inside)["ssh_args"].is_array());
+    CHECK((*inside)["ssh_args"][0] == "ssh");
+    bool has_tty = false;
+    bool has_encoded = false;
+    for (const auto &arg : (*inside)["ssh_args"]) {
+        has_tty = has_tty || arg == "-t";
+        has_encoded = has_encoded || arg == "-EncodedCommand";
+    }
+    CHECK(has_tty);
+    CHECK(has_encoded);
+
+    const auto outside =
+        service.handle("shell", nlohmann::json{{"cwd", "/tmp"}});
+    REQUIRE_FALSE(outside.has_value());
+    CHECK(outside.error().code == ErrorCode::kPathMappingFailed);
+
+    REQUIRE(service.handle("shutdown").has_value());
 }
