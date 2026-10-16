@@ -47,6 +47,7 @@
 | 流程 | 入口 | 说明 | 时序图 |
 | --- | --- | --- | --- |
 | 初始化 | `lsw init` | 发行版/包管理器识别 → 依赖检查 → 确认安装缺失包 → helper/配置初始化 → Windows 侧提示 | `sequence-init.puml` |
+| 卸载 | `lsw uninstall` / `lsw --uninstall` | 确认并停止 VM → 默认只删 VM 专属文件；可选彻底清理配置/helper/受管包 | `sequence-uninstall.puml` |
 | 安装 | `lsw --install` / `lsw install` | 依赖检查 → 交互输入 ISO → 创建磁盘 → GUI 安装 → 安装后指引 | `sequence-install.puml` |
 | 启动 | `lsw start` | 拉起 `lswd` → QMP 启动 VM → 等待 2222 → 启动 host Samba → 挂载 CIFS（`Z:` 延迟到使用会话） | `sequence-start.puml` |
 | Shell | `lsw` / `lsw shell` | CLI 上报 cwd → daemon 返回编码 PowerShell 的 `ssh_args` → `execvp ssh -t` 接管终端（P7 已实现） | `sequence-shell.puml` |

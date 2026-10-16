@@ -6,6 +6,9 @@
 
 ### 新增
 
+- 新增 MIT `LICENSE`，README 同步许可证信息。
+- 打包与安装：CMake 新增 `install` / `uninstall` 目标，可 `make install` 安装 `lsw`/`lswd`/helper/Windows 脚本/文档，`make uninstall` 清理 LSW 专属文件与空目录；`cmake --build --target package_source` 生成 `lsw-<version>.tar.xz` 源码包；新增 GitHub Actions `.github/workflows/package-tar-xz.yml`，tag 自动构建、测试、验证安装卸载并创建 Release。
+- 新增 `lsw uninstall` / `lsw --uninstall`（P13 扩展）：默认只删除 VM 磁盘、OVMF_VARS 与 install/guest 元数据，保留配置/helper/依赖便于重装；可交互选择彻底清理，`--purge` 只卸载 `lsw init` 记录的受管包，`--keep`/`--force`/`--dry-run` 可控；运行中 VM 先经 IPC shutdown。
 - 新增 `lsw init [--yes] [--dry-run]`（P12 扩展）：识别 Arch/Debian/Fedora 与包管理器，检查 KVM/QEMU/OVMF/Samba/cifs-utils/OpenSSH/swtpm/libsecret/helper，缺包经确认后自动安装；生成默认 `config.toml`（已有保留）；Windows 侧只提示 `post-install.ps1`。
 - 新增 `lsw install` 子命令，与 `lsw --install` 完全等价，支持相同的 ISO/磁盘/固件选项，便于把 install 与 start/status 等子命令保持统一形式。
 - `lsw status [--json]`（新增功能）：查看 daemon/VM 状态、磁盘是否存在、安装标记、Windows 主机名与 virtio-win 驱动；VM 运行时 SSH 探测并缓存到 `$STATE/lsw/guest.json`，停止时读缓存；`lsw --install` 成功后写 `$STATE/lsw/install.json`。

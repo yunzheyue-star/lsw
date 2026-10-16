@@ -22,6 +22,13 @@
 
 #include <lsw/util/paths.hpp>
 
+#ifndef LSW_INSTALL_HELPER_PATH
+#define LSW_INSTALL_HELPER_PATH "/usr/local/lib/lsw/lsw-mount-helper"
+#endif
+#ifndef LSW_INSTALL_DATA_DIR
+#define LSW_INSTALL_DATA_DIR "/usr/local/share/lsw"
+#endif
+
 namespace lsw::bootstrap {
 namespace {
 
@@ -111,7 +118,7 @@ bool has_kvm_access() { return ::access("/dev/kvm", R_OK | W_OK) == 0; }
 /// @brief 宿主 helper 是否已安装。
 /// @return 存在且可执行返回 true。
 bool has_helper() {
-    const std::filesystem::path helper{"/usr/local/lib/lsw/lsw-mount-helper"};
+    const std::filesystem::path helper{LSW_INSTALL_HELPER_PATH};
     std::error_code error;
     return std::filesystem::is_regular_file(helper, error) && !error &&
            ::access(helper.c_str(), X_OK) == 0;
@@ -319,7 +326,9 @@ std::filesystem::path find_helper_source() {
     if (!error) {
         candidates.push_back(cwd / "scripts" / "lsw-mount-helper");
     }
-    candidates.push_back("/usr/local/share/lsw/lsw-mount-helper");
+    candidates.push_back(std::filesystem::path(LSW_INSTALL_DATA_DIR) /
+                         "lsw-mount-helper");
+    candidates.push_back(std::filesystem::path(LSW_INSTALL_HELPER_PATH));
     for (const auto &candidate : candidates) {
         std::error_code exists_error;
         if (std::filesystem::is_regular_file(candidate, exists_error) &&
@@ -338,6 +347,15 @@ std::filesystem::path find_post_install_script() {
         std::error_code error;
         if (std::filesystem::is_regular_file(env, error) && !error) {
             return env;
+        }
+    }
+    {
+        const auto installed =
+            std::filesystem::path(LSW_INSTALL_DATA_DIR) / "post-install.ps1";
+        std::error_code installed_error;
+        if (std::filesystem::is_regular_file(installed, installed_error) &&
+            !installed_error) {
+            return installed;
         }
     }
     std::error_code error;
@@ -402,11 +420,12 @@ Status install_helper() {
                     "找不到 lsw-mount-helper 源文件；可设置 "
                     "LSW_HELPER_SOURCE 指向 scripts/lsw-mount-helper");
     }
-    const std::string destination = "/usr/local/lib/lsw/lsw-mount-helper";
-    if (auto status =
-            run_privileged({"install", "-d", "-o", "root", "-g", "root", "-m",
-                            "0755", "/usr/local/lib/lsw"},
-                           "创建 helper 目录");
+    const std::string destination = LSW_INSTALL_HELPER_PATH;
+    const std::string helper_dir =
+        std::filesystem::path(destination).parent_path().string();
+    if (auto status = run_privileged({"install", "-d", "-o", "root", "-g",
+                                      "root", "-m", "0755", helper_dir},
+                                     "创建 helper 目录");
         !status) {
         return status;
     }
@@ -615,8 +634,8 @@ Result<Plan> plan(const XdgPaths &paths) {
     const bool helper_ok = has_helper();
     result.helper_missing = !helper_ok;
     result.components.push_back(make_component(
-        "helper", "LSW helper (/usr/local/lib/lsw/lsw-mount-helper)", helper_ok,
-        true, helper_ok ? "已安装" : "未安装（CIFS/Samba 提权需要）",
+        "helper", std::string("LSW helper (") + LSW_INSTALL_HELPER_PATH + ")",
+        helper_ok, true, helper_ok ? "已安装" : "未安装（CIFS/Samba 提权需要）",
         result.manager));
 
     for (const auto &component : result.components) {
@@ -768,6 +787,12 @@ Status run(const XdgPaths &paths, const Options &options) {
             !status) {
             return status;
         }
+        if (auto recorded = record_managed_packages(paths, current.manager,
+                                                    current.missing_packages);
+            !recorded) {
+            std::cout << "[lsw init] 警告：无法记录受管包列表："
+                      << recorded.error().message << "\n";
+        }
     }
     if (need_helper) {
         if (auto status = install_helper(); !status) {
@@ -794,6 +819,58 @@ Status run(const XdgPaths &paths, const Options &options) {
     std::cout << "[lsw init] 初始化完成。\n";
     print_windows_hint();
     return {};
+}
+
+/** @brief 记录 lsw init 实际安装的包。 */
+Status record_managed_packages(const XdgPaths &paths, PackageManager manager,
+                               const std::vector<std::string> &packages) {
+    std::error_code error;
+    std::filesystem::create_directories(paths.state_dir, error);
+    if (error) {
+        return fail(ErrorCode::kIoError,
+                    "创建状态目录失败: " + error.message());
+    }
+    std::vector<std::string> merged = packages;
+    const auto previous = load_managed_packages(paths);
+    if (previous && previous->is_object()) {
+        for (const auto &item :
+             previous->value("packages", nlohmann::json::array())) {
+            if (item.is_string()) {
+                const auto value = item.get<std::string>();
+                if (std::find(merged.begin(), merged.end(), value) ==
+                    merged.end()) {
+                    merged.push_back(value);
+                }
+            }
+        }
+    }
+    nlohmann::json value{
+        {"manager", to_string(manager)},
+        {"packages", merged},
+        {"updated_at",
+         std::chrono::system_clock::now().time_since_epoch().count()}};
+    std::ofstream output(paths.state_dir / "managed-packages.json",
+                         std::ios::trunc);
+    if (!output) {
+        return fail(ErrorCode::kIoError, "无法写入 managed-packages.json");
+    }
+    output << value.dump(2) << "\n";
+    return {};
+}
+
+/** @brief 读取受管包列表。 */
+Result<nlohmann::json> load_managed_packages(const XdgPaths &paths) {
+    std::ifstream input(paths.state_dir / "managed-packages.json");
+    if (!input) {
+        return nlohmann::json::object();
+    }
+    nlohmann::json value;
+    try {
+        input >> value;
+    } catch (const nlohmann::json::exception &) {
+        return nlohmann::json::object();
+    }
+    return value;
 }
 
 } // namespace lsw::bootstrap

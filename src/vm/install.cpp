@@ -530,10 +530,12 @@ Result<InstallResult> Installer::run() {
 std::vector<std::string> Installer::post_install_guidance() const {
     return {
         "Windows 安装完成后，请在 Windows 内确认以下事项：",
-        "1. 启用 OpenSSH Server：设置 → 系统 → 可选功能 → OpenSSH 服务器",
-        "2. 安装并启动 QEMU Guest Agent（virtio-win ISO 内提供）",
-        "3. 启用 SMB：共享 C$、D$，开放 445 端口",
-        "4. 映射 Z:：net use Z: \\\\10.0.2.4\\qemu /persistent:yes",
+        "1. 创建 Windows 用户 lsw（或修改 config.user.windows_user 与之"
+        "一致），SSH 登录使用该用户名",
+        "2. 启用 OpenSSH Server：设置 → 系统 → 可选功能 → OpenSSH 服务器",
+        "3. 安装并启动 QEMU Guest Agent（virtio-win ISO 内提供）",
+        "4. 启用 SMB：共享 C$、D$，开放 445 端口",
+        "5. 映射 Z:：net use Z: \\\\10.0.2.2\\qemu /persistent:yes",
         "可运行 scripts/post-install.ps1 自动检查以上项目",
     };
 }

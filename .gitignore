@@ -1,8 +1,11 @@
 # ===== CMake 构建目录 =====
 build/
+build-*/
 cmake-build-*/
 out/
 install/
+dist/
+/lsw-*.tar.xz
 
 # 就地构建（in-source）时由 CMake 生成的文件
 /CMakeCache.txt

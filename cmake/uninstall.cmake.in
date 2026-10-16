@@ -1,0 +1,43 @@
+# LSW 卸载脚本：由 make uninstall / cmake --build --target uninstall 调用。
+#
+# 读取 install_manifest.txt，删除所有安装文件，并清理 LSW 专属空目录。
+# 不会删除系统的 bin/lib/share 等公共目录。
+
+if(NOT EXISTS "@CMAKE_BINARY_DIR@/install_manifest.txt")
+    message(FATAL_ERROR
+        "找不到 @CMAKE_BINARY_DIR@/install_manifest.txt；请先执行 make install")
+endif()
+
+file(STRINGS "@CMAKE_BINARY_DIR@/install_manifest.txt" installed_files ENCODING UTF-8)
+
+set(installed_dirs "")
+foreach(file IN LISTS installed_files)
+    if(EXISTS "${file}" OR IS_SYMLINK "${file}")
+        file(REMOVE "${file}")
+        message(STATUS "Removed: ${file}")
+    endif()
+    get_filename_component(dir "${file}" DIRECTORY)
+    list(APPEND installed_dirs "${dir}")
+endforeach()
+
+if(installed_dirs)
+    list(REMOVE_DUPLICATES installed_dirs)
+    list(SORT installed_dirs COMPARE NATURAL ORDER DESCENDING)
+
+    foreach(dir IN LISTS installed_dirs)
+        # 只清理由 LSW 创建的空目录（路径中含 /lsw），不碰 bin/lib/share 本身。
+        if(dir MATCHES "/lsw(/|$)" AND IS_DIRECTORY "${dir}")
+            file(GLOB remaining "${dir}/*")
+            if(NOT remaining)
+                execute_process(
+                    COMMAND "${CMAKE_COMMAND}" -E remove_directory "${dir}"
+                    RESULT_VARIABLE remove_result)
+                if(remove_result EQUAL 0)
+                    message(STATUS "Removed empty directory: ${dir}")
+                endif()
+            endif()
+        endif()
+    endforeach()
+endif()
+
+message(STATUS "LSW uninstall finished")

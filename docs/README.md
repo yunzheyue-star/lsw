@@ -18,7 +18,8 @@ docs/
 │   ├── qmp.md
 │   ├── filesystem.md
 │   ├── config.md
-│   └── init.md
+│   ├── init.md
+│   └── uninstall.md
 └── diagrams/
     ├── component.puml
     ├── sequence-install.puml
@@ -27,6 +28,7 @@ docs/
     ├── sequence-exec.puml
     ├── sequence-status.puml
     ├── sequence-init.puml
+    ├── sequence-uninstall.puml
     └── sequence-shutdown.puml
 ```
 

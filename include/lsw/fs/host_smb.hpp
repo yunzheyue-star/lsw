@@ -19,17 +19,20 @@
 #include <lsw/core/error.hpp>
 #include <lsw/core/process.hpp>
 
+#ifndef LSW_INSTALL_HELPER_PATH
+#define LSW_INSTALL_HELPER_PATH "/usr/local/lib/lsw/lsw-mount-helper"
+#endif
+
 namespace lsw::winfs {
 
 /// @brief 宿主 root Samba 共享管理选项。
 struct HostSmbOptions {
-    std::filesystem::path helper_path{
-        "/usr/local/lib/lsw/lsw-mount-helper"}; ///< 提权 helper
-    std::string privilege{"sudo"};              ///< sudo / pkexec / none
-    std::filesystem::path home;                 ///< 共享目录；空 = 当前 $HOME
-    std::string share{"qemu"};                  ///< guest 侧共享名
-    std::string user;                           ///< Linux 用户；空 = 当前用户
-    std::chrono::milliseconds timeout{30000};   ///< helper 执行超时
+    std::filesystem::path helper_path{LSW_INSTALL_HELPER_PATH}; ///< 提权 helper
+    std::string privilege{"sudo"};            ///< sudo / pkexec / none
+    std::filesystem::path home;               ///< 共享目录；空 = 当前 $HOME
+    std::string share{"qemu"};                ///< guest 侧共享名
+    std::string user;                         ///< Linux 用户；空 = 当前用户
+    std::chrono::milliseconds timeout{30000}; ///< helper 执行超时
 };
 
 /// @brief 宿主 root Samba 共享的 RAII 管理器。

@@ -9,7 +9,7 @@
 1. 识别 Linux 发行版与包管理器；
 2. 检查系统依赖/组件，已有项直接跳过；
 3. 对缺失项经用户确认后调用包管理器安装；
-4. 生成 `$CONFIG/lsw/config.toml`（若不存在）；
+4. 生成 `$CONFIG/lsw/config.toml`（若不存在），并记录实际安装的包到 `$STATE/lsw/managed-packages.json`，供 `lsw uninstall --purge` 精确卸载；
 5. 提示 Windows 侧组件需在 VM 启动后执行。
 
 ## 组件与检测

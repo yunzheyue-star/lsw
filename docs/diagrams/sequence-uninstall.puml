@@ -1,0 +1,32 @@
+@startuml
+title lsw uninstall 时序
+actor User
+participant "lsw uninstall" as CLI
+participant "lswd" as Daemon
+participant "文件系统" as FS
+participant "sudo" as SUDO
+
+User -> CLI : lsw uninstall [--yes/--keep/--purge/--force/--dry-run]
+CLI -> Daemon : status（短超时探测）
+alt VM/daemon 运行中
+  CLI -> User : 确认关机
+  CLI -> Daemon : shutdown
+  Daemon --> CLI : stopped，daemon 退出
+else daemon 未运行
+  CLI -> FS : /proc 检查磁盘占用
+end
+CLI -> User : 展示 VM 专属删除清单
+alt dry-run
+  CLI --> User : 仅打印计划，退出 0
+else 用户取消
+  CLI --> User : 已取消，退出 0
+else 确认删除
+  CLI -> FS : 删除 qcow2 + OVMF_VARS + install/guest 元数据
+  opt 彻底清理
+    CLI -> FS : 删除 config/data/state/runtime
+    CLI -> SUDO : 删除 helper + sudoers
+    CLI -> SUDO : 卸载 managed-packages.json 记录的包
+  end
+  CLI --> User : 卸载完成
+end
+@enduml

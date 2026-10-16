@@ -20,13 +20,17 @@
 #include <lsw/core/error.hpp>
 #include <lsw/fs/credentials.hpp>
 
+#ifndef LSW_INSTALL_HELPER_PATH
+#define LSW_INSTALL_HELPER_PATH "/usr/local/lib/lsw/lsw-mount-helper"
+#endif
+
 namespace lsw::winfs {
 
 /// @brief CIFS 挂载行为选项。
 struct MountOptions {
     std::filesystem::path mount_root{"/mnt/Windows"}; ///< Linux 挂载根目录。
     std::filesystem::path helper_path{
-        "/usr/local/lib/lsw/lsw-mount-helper"}; ///< 最小权限挂载 helper。
+        LSW_INSTALL_HELPER_PATH};  ///< 最小权限挂载 helper。
     std::string privilege{"sudo"}; ///< 提权方式：sudo / pkexec / none（测试）。
     std::string cifs_version{"3.0"};    ///< mount.cifs 协议版本。
     std::vector<char> drives{'C', 'D'}; ///< 需要挂载的 Windows 盘符。

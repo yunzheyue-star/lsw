@@ -10,9 +10,12 @@
 
 #pragma once
 
+#include <chrono>
 #include <filesystem>
 #include <string>
 #include <vector>
+
+#include <nlohmann/json.hpp>
 
 #include <lsw/core/config.hpp>
 #include <lsw/core/error.hpp>
@@ -89,5 +92,20 @@ install_command(PackageManager manager,
 /// @param options 交互/ dry-run 选项。
 /// @return 全部必需组件满足返回成功；安装失败或仍缺依赖返回错误。
 [[nodiscard]] Status run(const XdgPaths &paths, const Options &options = {});
+
+/// @brief 记录 lsw init 实际安装的包，供 uninstall 彻底清理时参考。
+/// @param paths XDG 路径。
+/// @param manager 包管理器。
+/// @param packages 实际安装的包名。
+/// @return 写入结果。
+[[nodiscard]] Status
+record_managed_packages(const XdgPaths &paths, PackageManager manager,
+                        const std::vector<std::string> &packages);
+
+/// @brief 读取 lsw init 记录的受管包列表。
+/// @param paths XDG 路径。
+/// @return JSON：{ manager, packages }；不存在返回空对象。
+[[nodiscard]] Result<nlohmann::json>
+load_managed_packages(const XdgPaths &paths);
 
 } // namespace lsw::bootstrap

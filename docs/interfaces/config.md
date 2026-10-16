@@ -57,7 +57,7 @@ windows_user = "lsw"
 | `filesystem.mount_root` | path | `/mnt/Windows` | Windows 盘挂载根 |
 | `filesystem.linux_home_share` | path | `~` | 共享给 Windows 的 Linux 目录 |
 | `filesystem.windows_drive_z` | string | `Z:` | Windows 内映射的盘符 |
-| `user.windows_user` | string | `lsw` | Windows SSH 用户名；`PROMPT.md` 示例中的 `user` 即此字段 |
+| `user.windows_user` | string | `lsw` | Windows SSH 用户名；**建议 Windows 安装时创建同名用户 `lsw`**。若 Windows 用户名不同，必须修改此字段，并确保 SSH/CIFS 都使用该用户 |
 
 > 统一引用名：代码与文档中使用 `config.user.windows_user` 指代该字段（对应 TOML 的 `[user] windows_user`）。
 

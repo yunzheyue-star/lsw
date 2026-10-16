@@ -29,6 +29,8 @@
 | P10 | `lsw status`（扩展） | — | [x] |
 | P11 | `lsw install` 子命令别名（扩展） | — | [x] |
 | P12 | `lsw init` 环境初始化（扩展） | — | [x] |
+| P13 | `lsw uninstall` 卸载（扩展） | — | [ ] |
+| P14 | 打包与 `make install/uninstall`（扩展） | — | [ ] |
 | **合计** | | **100%** | 当前 **90%**（P9 完成后 100%，P10 为扩展） |
 
 ## 权重分布
@@ -111,11 +113,11 @@ bash scripts/verify-p1.sh
 
 | 编号 | 任务 | 交付物 / 验收标准 | 依赖 | 权重 | 状态 |
 | --- | --- | --- | --- | ---: | :---: |
-| P2-1 | IPC 协议与编解码 | `ipc/protocol.hpp`：请求/响应/错误结构、JSON Lines、`id` 匹配；roundtrip 单测 | P1 | 3% | [ ] |
-| P2-2 | IPC Server | `$RUNTIME/lsw/lswd.sock` listen、多连接、权限 0700、优雅关闭；集成测试 | P2-1 | 2% | [ ] |
-| P2-3 | IPC Client | 连接/超时/重试、请求 `id`、错误转 `Result`；socketpair 单测 | P2-1 | 2% | [ ] |
-| P2-4 | `lswd` 进程骨架 | daemon main、`lswd.pid` 单实例锁、信号处理、socket 清理、`status` 命令 | P2-2 | 2% | [ ] |
-| P2-5 | 幂等与并发骨架 | `start`/`mount`/`unmount` 幂等；并发重复调用串行化测试 | P2-4 | 1% | [ ] |
+| P2-1 | IPC 协议与编解码 | `ipc/protocol.hpp`：请求/响应/错误结构、JSON Lines、`id` 匹配；roundtrip 单测 | P1 | 3% | [x] |
+| P2-2 | IPC Server | `$RUNTIME/lsw/lswd.sock` listen、多连接、权限 0700、优雅关闭；集成测试 | P2-1 | 2% | [x] |
+| P2-3 | IPC Client | 连接/超时/重试、请求 `id`、错误转 `Result`；socketpair 单测 | P2-1 | 2% | [x] |
+| P2-4 | `lswd` 进程骨架 | daemon main、`lswd.pid` 单实例锁、信号处理、socket 清理、`status` 命令 | P2-2 | 2% | [x] |
+| P2-5 | 幂等与并发骨架 | `start`/`mount`/`unmount` 幂等；并发重复调用串行化测试 | P2-4 | 1% | [x] |
 
 ### P2 验收方式（一键）
 
@@ -349,6 +351,66 @@ bash scripts/verify-init.sh
 
 - 2026-10-16：真机 `lsw init --dry-run` 正确识别 `Arch Linux` / `pacman`，KVM/QEMU/OVMF/Samba/cifs-utils/OpenSSH/swtpm/libsecret/helper 全部 `[OK]`，保留现有 `config.toml` 且未产生变更；
 - 自动化：`bash scripts/verify-init.sh` **26/26 通过**，`ctest` **127/127 通过**，verify-p0~p8 与 status 全绿。
+
+## P13 · `lsw uninstall` 卸载（扩展功能）
+
+> 默认“只删 VM、保留环境”，选择彻底清理时只卸载 `lsw init` 记录过的受管包；外部磁盘需 `--force`。
+
+| 编号 | 任务 | 交付物 / 验收标准 | 依赖 | 状态 |
+| --- | --- | --- | --- | :---: |
+| P13-1 | 卸载计划 | 磁盘/OVMF/install/guest 元数据；外部磁盘保护；`--dry-run` | P4、P8 | [x] |
+| P13-2 | 运行中 VM 处理 | IPC shutdown，等待退出；daemon 不在时检测磁盘占用并拒绝 | P5 | [x] |
+| P13-3 | 彻底清理 | 配置/helper/sudoers/数据/状态 + `managed-packages.json` 记录包 | P6、P12 | [x] |
+| P13-4 | CLI 别名 | `uninstall` 与 `--uninstall` 等价；`--yes/--keep/--purge/--force` | P2 | [x] |
+
+### P13 验收方式
+
+```bash
+./build/lsw uninstall --help
+./build/lsw uninstall --dry-run --keep --yes
+bash scripts/verify-uninstall.sh
+```
+
+预期：`--keep` 只删除 VM 专属文件并保留 config/helper/依赖；`--purge --dry-run` 打印完整清理计划；`ctest` 与 uninstall 单测全绿。
+
+### P13 真机验收记录
+
+- 2026-10-16/17：真机执行 `lsw uninstall --keep --yes` 删除 VM 后保留 `config.toml`、helper 与依赖；
+- 随后重装 Windows、恢复 SSH 免密/QEMU-GA/SMB/C$ 挂载，`lsw start`、`lsw status`、`lsw shell` 全部正常；
+- 自动化：`scripts/verify-uninstall.sh` 28/28，`ctest` 131/131。
+
+---
+
+## P14 · 打包与 `make install/uninstall`（扩展功能）
+
+> 面向 GitHub 发布：CPack 生成 `.tar.xz` 源码包，CMake 提供 `install` / `uninstall`，GitHub Actions 在 tag 时自动构建、测试、验证安装卸载并创建 Release。
+
+| 编号 | 任务 | 交付物 / 验收标准 | 依赖 | 状态 |
+| --- | --- | --- | --- | :---: |
+| P14-1 | CMake install/uninstall | 安装 `lsw`/`lswd`/helper/Windows 脚本/文档；`make uninstall` 清理 LSW 专属文件与空目录 | P0 | [x] |
+| P14-2 | `.tar.xz` 源码包 | `cmake --build build --target package_source` 生成 `lsw-<version>.tar.xz`，排除 build/.git/.dsh 等内部目录 | P14-1 | [x] |
+| P14-3 | GitHub Actions | `.github/workflows/package-tar-xz.yml`：Arch 容器构建+ctest、生成包、验证 make install/uninstall、上传 artifact、tag 自动 Release | P14-2 | [x] |
+
+### P14 验收方式
+
+```bash
+cmake -S . -B build -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Release
+cmake --build build --target package_source
+tar -tJf build/lsw-*.tar.xz | head
+
+# 解压后验证
+cmake -S <extracted> -B <extracted>/build -G "Unix Makefiles" \
+  -DCMAKE_INSTALL_PREFIX=/tmp/lsw-prefix -DLSW_FETCH_DEPS=OFF
+make -C <extracted>/build -j"$(nproc)"
+make -C <extracted>/build install
+make -C <extracted>/build uninstall
+```
+
+### P14 验收记录
+
+- 本地 `cmake --build build --target package_source` 生成 `lsw-0.1.0.tar.xz`，已确认含 `CMakeLists.txt`、`README.md`、`LICENSE`、源码、脚本与文档，且不包含 `build*/`、`.dsh/`、`persona/`；
+- 解压后用 `Unix Makefiles` 构建、`make -C build install` 安装 `bin/lsw`、`bin/lswd`、`lib/lsw/helper`、`share/doc/lsw/LICENSE`，`make -C build uninstall` 后 LSW 文件与专属空目录全部清除；
+- GitHub Actions 工作流已加入，待推送仓库后首次运行确认。
 
 ---
 

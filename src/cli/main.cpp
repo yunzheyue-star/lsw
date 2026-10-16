@@ -29,6 +29,7 @@
 #include <lsw/core/config.hpp>
 #include <lsw/core/error.hpp>
 #include <lsw/core/process.hpp>
+#include <lsw/core/uninstall.hpp>
 #include <lsw/fs/credentials.hpp>
 #include <lsw/ipc/client.hpp>
 #include <lsw/util/paths.hpp>
@@ -466,6 +467,35 @@ int main(int argc, char **argv) {
                  "允许复用 LSW 数据目录之外已存在的磁盘（危险）");
     app.add_flag("--save-password", save_password,
                  "把交互输入的 Windows 密码保存到系统 keyring");
+    bool uninstall_flag = false;
+    bool uninstall_yes = false;
+    bool uninstall_purge = false;
+    bool uninstall_keep = false;
+    bool uninstall_force = false;
+    bool uninstall_dry_run = false;
+    app.add_flag("--uninstall", uninstall_flag,
+                 "删除已安装的 Windows 虚拟机（等价于 uninstall）");
+    app.add_flag("--yes", uninstall_yes, "uninstall：跳过删除确认");
+    app.add_flag("--purge", uninstall_purge,
+                 "uninstall：连带清理配置、helper 与受管依赖");
+    app.add_flag("--keep", uninstall_keep,
+                 "uninstall：只删除虚拟机，保留配置与组件");
+    app.add_flag("--force", uninstall_force,
+                 "uninstall：允许删除 LSW 数据目录之外的磁盘");
+    app.add_flag("--dry-run", uninstall_dry_run,
+                 "uninstall：只打印卸载计划，不执行");
+
+    auto *uninstall_command =
+        app.add_subcommand("uninstall", "删除已安装的 Windows 虚拟机");
+    uninstall_command->add_flag("--yes", uninstall_yes, "跳过删除确认");
+    uninstall_command->add_flag("--purge", uninstall_purge,
+                                "连带清理配置、helper 与受管依赖");
+    uninstall_command->add_flag("--keep", uninstall_keep,
+                                "只删除虚拟机，保留配置与组件");
+    uninstall_command->add_flag("--force", uninstall_force,
+                                "允许删除 LSW 数据目录之外的磁盘");
+    uninstall_command->add_flag("--dry-run", uninstall_dry_run,
+                                "只打印卸载计划，不执行");
 
     bool init_yes = false;
     bool init_dry_run = false;
@@ -516,9 +546,9 @@ int main(int argc, char **argv) {
 
     std::vector<std::string> extras = app.remaining();
     // CLI11 子命令的剩余位置参数不会进入父 App.remaining()，逐个收集。
-    for (auto *sub :
-         {init_command, install_command, start_command, shutdown_command,
-          mount_command, unmount_command, shell_command, status_command}) {
+    for (auto *sub : {uninstall_command, init_command, install_command,
+                      start_command, shutdown_command, mount_command,
+                      unmount_command, shell_command, status_command}) {
         if (sub != nullptr && sub->parsed()) {
             const auto sub_extras = sub->remaining();
             extras.insert(extras.end(), sub_extras.begin(), sub_extras.end());
@@ -622,6 +652,31 @@ int main(int argc, char **argv) {
         return run_daemon_command(*paths, "shutdown");
     }
 
+    const bool want_uninstall = uninstall_flag || uninstall_command->parsed();
+    if (want_uninstall) {
+        if (!extras.empty()) {
+            std::cerr << "lsw uninstall 不接受额外位置参数\n";
+            return lsw::to_exit_code(lsw::ErrorCode::kInvalidArgument);
+        }
+        if (uninstall_purge && uninstall_keep) {
+            std::cerr << "lsw uninstall: --purge 与 --keep 不能同时使用\n";
+            return lsw::to_exit_code(lsw::ErrorCode::kInvalidArgument);
+        }
+        auto paths = lsw::resolve_paths(lsw::PathEnvironment::from_process());
+        if (!paths) {
+            return report_error(paths.error());
+        }
+        lsw::uninstall::Options options;
+        options.assume_yes = uninstall_yes;
+        options.purge = uninstall_purge;
+        options.keep = uninstall_keep;
+        options.force = uninstall_force;
+        options.dry_run = uninstall_dry_run;
+        if (auto status = lsw::uninstall::run(*paths, options); !status) {
+            return report_error(status.error());
+        }
+        return 0;
+    }
     if (init_command->parsed()) {
         if (!extras.empty()) {
             std::cerr << "lsw init 不接受额外位置参数\n";

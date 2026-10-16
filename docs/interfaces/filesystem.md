@@ -99,7 +99,7 @@ class ZDriveMapper {
 
 ## 挂载 helper 协议
 
-`scripts/lsw-mount-helper` 由 `lswd` 通过 `sudo -n` 或 `pkexec` 调用：
+`scripts/lsw-mount-helper` 由 `lswd` 通过 `sudo -n` 或 `pkexec` 调用；`make install` 会将它安装到 `${CMAKE_INSTALL_FULL_LIBDIR}/lsw/lsw-mount-helper`（默认 `/usr/local/lib/lsw/lsw-mount-helper`），运行时按同一编译期路径查找：
 
 ```text
 lsw-mount-helper mount <盘符> <CIFS源> <挂载点> <端口> <用户名> <协议版本>

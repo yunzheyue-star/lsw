@@ -16,6 +16,21 @@
 
 ## 命令
 
+### `lsw uninstall` / `lsw --uninstall`
+
+删除已安装的 Windows 虚拟机。默认只删除 VM 专属文件并保留配置、helper 与依赖，方便直接重装；交互过程中会额外询问是否连带卸载配置、依赖与组件。
+
+| 参数 | 说明 |
+| --- | --- |
+| 无参数 | 确认删除 VM → 询问是否连带清理（默认否） |
+| `--yes` | 跳过删除 VM 确认 |
+| `--keep` | 只删除 VM（默认路径） |
+| `--purge` | 连带清理配置、helper、数据/状态与 `lsw init` 受管包 |
+| `--force` | 允许删除 LSW 数据目录之外的磁盘 |
+| `--dry-run` | 只打印卸载计划 |
+
+详见 [`docs/interfaces/uninstall.md`](uninstall.md)。
+
 ### `lsw init [--yes] [--dry-run]`
 
 初始化 LSW 宿主环境：识别发行版/包管理器，逐项检查依赖与组件，已有的跳过；缺失项展示安装命令，确认后自动安装；生成/保留 `config.toml`；提示 Windows 侧 `post-install.ps1`。
@@ -90,7 +105,7 @@
 5. `execvp` 前 CLI 会向本地 TTY 发送 `ESC[2J/3J/H`，清掉启动命令行与滚动回退，让 PowerShell 从干净屏幕开始；
 6. 远端 shell 会把 PowerShell `RawUI.BufferSize` 收敛到窗口尺寸，并覆盖 `Clear-Host` 发送 `ESC[2J/3J/H`，使 `clear`/`cls` 同时清可视区与滚动回退。
 
-> `$WINDOWS_USER` 取 `config.user.windows_user`，默认 `lsw`。
+> `$WINDOWS_USER` 取 `config.user.windows_user`，默认 `lsw`。**建议 Windows 安装时创建同名用户 `lsw`**；若使用其他用户名，必须修改配置，否则 `lsw shell`/`lsw start` 会连接失败。
 
 退出码：`0`、`5`（路径越界）、`6`（VM 未运行、SSH/认证失败）。
 

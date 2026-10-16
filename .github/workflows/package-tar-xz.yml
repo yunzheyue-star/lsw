@@ -1,0 +1,125 @@
+name: Package lsw source tar.xz
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  package:
+    name: Build, test, package and verify
+    runs-on: ubuntu-latest
+    container:
+      image: archlinux:base-devel
+      options: --user root
+    timeout-minutes: 45
+
+    steps:
+      - name: Bootstrap container packages
+        run: |
+          pacman-key --init
+          pacman-key --populate archlinux
+          pacman -Sy --noconfirm archlinux-keyring
+          pacman -Syu --noconfirm --needed \
+            git cmake make xz
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Mark workspace as safe
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+      - name: Install LSW build dependencies
+        run: |
+          pacman -S --noconfirm --needed \
+            cli11 nlohmann-json spdlog fmt catch2 tomlplusplus
+
+      - name: Configure
+        run: |
+          cmake -S . -B build \
+            -G "Unix Makefiles" \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DLSW_FETCH_DEPS=OFF \
+            -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+
+      - name: Build
+        run: cmake --build build -j"$(nproc)"
+
+      - name: Test
+        run: ctest --test-dir build --output-on-failure
+
+      - name: Generate source tar.xz
+        run: |
+          set -euo pipefail
+          cmake_version="$(
+            sed -n 's/^project(lsw VERSION \([0-9.]*\).*/\1/p' CMakeLists.txt \
+              | head -1
+          )"
+          if [ -z "$cmake_version" ]; then
+            echo "无法从 CMakeLists.txt 解析版本号" >&2
+            exit 1
+          fi
+
+          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+            version="${GITHUB_REF_NAME#v}"
+          else
+            version="$cmake_version"
+          fi
+
+          cmake --build build --target package_source
+          package="build/lsw-${cmake_version}.tar.xz"
+          test -f "$package"
+          cp "$package" "lsw-${version}.tar.xz"
+          echo "VERSION=${version}" >> "$GITHUB_ENV"
+          echo "PACKAGE=lsw-${version}.tar.xz" >> "$GITHUB_ENV"
+          ls -lh "lsw-${version}.tar.xz"
+
+      - name: Verify make install / make uninstall
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/lsw-verify
+          mkdir -p /tmp/lsw-verify
+
+          tar -xJf "${PACKAGE}" -C /tmp/lsw-verify
+          root="$(find /tmp/lsw-verify -mindepth 1 -maxdepth 1 -type d \
+            | head -1)"
+          prefix="/tmp/lsw-verify/prefix"
+
+          cmake -S "$root" -B "$root/build" \
+            -G "Unix Makefiles" \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DBUILD_TESTING=OFF \
+            -DCMAKE_INSTALL_PREFIX="$prefix" \
+            -DLSW_FETCH_DEPS=OFF
+
+          make -C "$root/build" -j"$(nproc)"
+          make -C "$root/build" install
+
+          test -x "$prefix/bin/lsw"
+          test -x "$prefix/bin/lswd"
+          test -x "$prefix/lib/lsw/lsw-mount-helper" \
+            || test -x "$prefix/lib64/lsw/lsw-mount-helper"
+
+          make -C "$root/build" uninstall
+          test ! -e "$prefix/bin/lsw"
+          test ! -e "$prefix/bin/lswd"
+          test ! -d "$prefix/lib/lsw"
+          test ! -d "$prefix/share/lsw"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: lsw-${{ env.VERSION }}-tar-xz
+          path: lsw-*.tar.xz
+          if-no-files-found: error
+
+      - name: Publish GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: lsw-*.tar.xz
+          generate_release_notes: true

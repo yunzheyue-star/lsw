@@ -82,3 +82,67 @@ include(CTest)          # 定义 BUILD_TESTING，默认 ON
 if(BUILD_TESTING)
     add_subdirectory(tests)
 endif()
+
+# ===== 安装 / 卸载 / 源码打包 =====
+include(GNUInstallDirs)
+
+# helper 与数据文件安装路径；编译进 lsw_core，运行时按同一路径查找。
+set(LSW_INSTALL_HELPER_PATH
+    "${CMAKE_INSTALL_FULL_LIBDIR}/lsw/lsw-mount-helper"
+    CACHE INTERNAL "lsw-mount-helper installed path")
+set(LSW_INSTALL_DATA_DIR
+    "${CMAKE_INSTALL_FULL_DATADIR}/lsw"
+    CACHE INTERNAL "LSW shared data install dir")
+
+target_compile_definitions(lsw_core PUBLIC
+    LSW_INSTALL_HELPER_PATH="${LSW_INSTALL_HELPER_PATH}"
+    LSW_INSTALL_DATA_DIR="${LSW_INSTALL_DATA_DIR}")
+
+install(TARGETS lsw lswd
+    RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}")
+
+install(PROGRAMS "${CMAKE_CURRENT_SOURCE_DIR}/scripts/lsw-mount-helper"
+    DESTINATION "${CMAKE_INSTALL_LIBDIR}/lsw")
+
+install(PROGRAMS "${CMAKE_CURRENT_SOURCE_DIR}/scripts/post-install.ps1"
+    DESTINATION "${CMAKE_INSTALL_DATADIR}/lsw")
+
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/README.md")
+    install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/README.md"
+        DESTINATION "${CMAKE_INSTALL_DOCDIR}")
+endif()
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE")
+    install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE"
+        DESTINATION "${CMAKE_INSTALL_DOCDIR}")
+endif()
+install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/docs/"
+    DESTINATION "${CMAKE_INSTALL_DOCDIR}/docs"
+    FILES_MATCHING PATTERN "*.md" PATTERN "*.puml")
+
+# make uninstall：读取 install_manifest.txt，删除安装文件与空目录。
+configure_file(
+    "${CMAKE_CURRENT_SOURCE_DIR}/cmake/uninstall.cmake.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/uninstall.cmake"
+    @ONLY)
+add_custom_target(uninstall
+    COMMAND "${CMAKE_COMMAND}" -P "${CMAKE_CURRENT_BINARY_DIR}/uninstall.cmake"
+    COMMENT "Uninstalling LSW")
+
+# CPack：make package_source 生成 lsw-<version>.tar.xz 源码包。
+set(CPACK_PACKAGE_NAME "lsw")
+set(CPACK_PACKAGE_VENDOR "LSW")
+set(CPACK_PACKAGE_VERSION "${PROJECT_VERSION}")
+set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Linux Subsystem for Windows")
+set(CPACK_PACKAGE_CONTACT "琳筱筱 <341178706@qq.com>")
+set(CPACK_SOURCE_GENERATOR "TXZ")
+set(CPACK_SOURCE_PACKAGE_FILE_NAME "lsw-${PROJECT_VERSION}")
+set(CPACK_SOURCE_IGNORE_FILES
+    "/build[^/]*/"
+    "/.git/"
+    "/.dsh/"
+    "/persona/"
+    "/Testing[^/]*/"
+    "/.cache/"
+    "\\.swp$"
+    "~$")
+include(CPack)
