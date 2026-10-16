@@ -74,21 +74,36 @@
 1. CLI 读取当前 Linux 工作目录，通过 IPC `shell { cwd }` 询问 `lswd`；
 2. `lswd` 检查 VM 正在运行（否则 `VM_NOT_RUNNING`，退出码 6），把 `cwd` 映射为 `Z:`；`$HOME` 本身返回默认路径；
 3. `lswd` 返回 `ssh_args`：`ssh -t -p 2222 -o StrictHostKeyChecking=accept-new "$WINDOWS_USER"@127.0.0.1 -- powershell.exe -NoLogo -NoExit -EncodedCommand <base64>`；编码脚本在同一个 SSH/PowerShell 会话内先 `net use Z: \\10.0.2.2\qemu`，再按需 `Set-Location`；
-4. CLI 用 `execvp` 替换当前进程执行 `ssh`，退出后回到原 shell，退出码透传；`PATH` 与 argv 均不经过 shell 拼接。
+4. CLI 用 `execvp` 替换当前进程执行 `ssh`，退出后回到原 shell，退出码透传；`PATH` 与 argv 均不经过 shell 拼接；
+5. `execvp` 前 CLI 会向本地 TTY 发送 `ESC[2J/3J/H`，清掉启动命令行与滚动回退，让 PowerShell 从干净屏幕开始；
+6. 远端 shell 会把 PowerShell `RawUI.BufferSize` 收敛到窗口尺寸，并覆盖 `Clear-Host` 发送 `ESC[2J/3J/H`，使 `clear`/`cls` 同时清可视区与滚动回退。
+
+> `$WINDOWS_USER` 取 `config.user.windows_user`，默认 `lsw`。
 
 退出码：`0`、`5`（路径越界）、`6`（VM 未运行、SSH/认证失败）。
 
-### `lsw test.exe [args...]`
+### `lsw <program> [args...]`
 
-在 Windows 环境中运行指定 exe，暂不支持 GUI 程序（需要 GUI 时明确提示用户）。
+在 Windows 环境中运行指定程序；支持 `.exe`、`.bat`、`.cmd`（.bat 为一等公民，适合没有 exe 时的脚本验收）。GUI 程序暂不支持，会明确提示。
 
-1. 相对路径解析为绝对路径。
-2. 位于 `$HOME` 下 → 映射为 `Z:\...`。
-3. 不在 `$HOME` 下 → 复制到 `$HOME/.lsw/tmp/<hash>/` 后再映射。
-4. 经 SSH 执行 `& 'Z:\path\test.exe' args; exit $LASTEXITCODE`。
-5. 透传 stdout、stderr 与退出码。
+流程（P8 已实现，daemon 侧完成路径处理）：
 
-退出码：`0` 成功、`5` 路径映射失败、`6` SSH 执行失败、`7` 程序返回非零。
+1. CLI 把 `argv`（程序 + 参数）与当前 `cwd` 通过 IPC `exec` 交给 `lswd`；
+2. 相对路径按 `cwd` 绝对化；位于 `$HOME` 下 → 映射为 `Z:\...`；
+3. 不在 `$HOME` 下 → 复制到 `$HOME/.lsw/tmp/<hash>/<文件名>` 后再映射（超过 7 天的旧子目录会在下次执行时清理）；
+4. 若为 `.exe` 且 PE Subsystem 为 GUI（2），返回 `PROGRAM_FAILED`，提示暂不支持 GUI；
+5. daemon 经非交互 SSH 执行 `powershell.exe -NoLogo -NoProfile -NonInteractive -EncodedCommand <base64>`；远端脚本先把 `Z:` 上的程序复制到 Windows 本地 `%TEMP%\lsw-exec-<guid>\` 并 `Unblock-File`，再从本地路径执行，结束后删除临时目录（避免 SMB 租约/文件锁或 Defender 扫描导致 `.bat` 卡住）；
+6. 透传 stdout、stderr；程序退出码原样透传（0–255，超出按低 8 位）。
+
+退出码：`0` 成功、`5` 路径映射/文件不存在、`6` VM 未运行/SSH 失败/执行超时、`7` GUI 程序（`PROGRAM_FAILED`）或未归类执行错误。
+
+示例：
+
+```bash
+lsw test.exe arg1 arg2
+lsw hello.bat
+lsw build.cmd --release
+```
 
 ### `lsw shutdown`
 

@@ -21,6 +21,7 @@
 
 #include <lsw/core/config.hpp>
 #include <lsw/core/error.hpp>
+#include <lsw/exec/windows_runner.hpp>
 #include <lsw/fs/host_smb.hpp>
 #include <lsw/fs/mount.hpp>
 #include <lsw/fs/z_mapping.hpp>
@@ -41,6 +42,7 @@ struct DaemonServiceOptions {
     bool enable_z_mapping{true};
     std::chrono::milliseconds ssh_ready_timeout{120000};
     std::chrono::milliseconds ssh_poll_interval{250};
+    std::chrono::milliseconds exec_timeout{300000};
     bool try_ssh_shutdown{true};
 };
 
@@ -98,6 +100,10 @@ class DaemonService {
     /// @param args 命令参数，必须含 cwd。
     /// @return 成功返回 { ssh_args: [...] }；VM 未运行返回 kVMNotRunning。
     [[nodiscard]] Result<nlohmann::json> on_shell(const nlohmann::json &args);
+    /// @brief 处理 exec 命令：解析路径并在 Windows 内执行程序。
+    /// @param args 命令参数：argv 与可选 cwd。
+    /// @return 成功返回 stdout/stderr/exit_code。
+    [[nodiscard]] Result<nlohmann::json> on_exec(const nlohmann::json &args);
 
     /// @brief 尝试通过 SSH 关闭虚拟机。
     void try_ssh_shutdown();

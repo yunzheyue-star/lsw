@@ -26,6 +26,7 @@ inline constexpr std::string_view kNotImplemented = "NOT_IMPLEMENTED";
 inline constexpr std::string_view kPathOutsideHome = "PATH_OUTSIDE_HOME";
 inline constexpr std::string_view kVMNotRunning = "VM_NOT_RUNNING";
 inline constexpr std::string_view kSshFailed = "SSH_FAILED";
+inline constexpr std::string_view kProgramFailed = "PROGRAM_FAILED";
 inline constexpr std::string_view kMountFailed = "MOUNT_FAILED";
 inline constexpr std::string_view kUnmountFailed = "UNMOUNT_FAILED";
 inline constexpr std::string_view kShareSetupFailed = "SHARE_SETUP_FAILED";

@@ -51,6 +51,8 @@ TEST_CASE("shell：$HOME 使用 PowerShell 默认路径", "[shell]") {
     CHECK(script->find("$target=''") != std::string::npos);
     CHECK(script->find("Set-Location -LiteralPath $target") !=
           std::string::npos);
+    CHECK(script->find("RawUI.BufferSize") != std::string::npos);
+    CHECK(script->find("global:Clear-Host") != std::string::npos);
 }
 
 TEST_CASE("shell：子目录映射为 Z: 并转义单引号", "[shell]") {

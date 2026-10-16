@@ -15,7 +15,7 @@
 
 ## 职责
 
-- Linux → Windows：宿主 root Samba 在 `127.0.0.1:445` 共享 `$HOME`，guest 通过 QEMU user-net 网关 `10.0.2.2` 访问；lswd 在启动/关闭时经 helper 启停 smbd，SSH 执行 `net use Z:`。
+- Linux → Windows：宿主 root Samba 在 `127.0.0.1:445` 共享 `$HOME`，guest 通过 QEMU user-net 网关 `10.0.2.2` 访问；lswd 在启动/关闭时经 helper 启停 smbd，SSH 执行 `net use Z:`。helper 生成的 smb.conf 关闭 oplocks/level2/kernel oplocks，避免 Windows 从 `Z:` 直接执行 `.bat` 时被文件锁卡住。
 - Windows → Linux：通过最小权限 helper 把 `C$`、`D$` 挂载到 `/mnt/Windows/C`、`/mnt/Windows/D`。
 - 禁止在 Windows 运行中直接读写其 NTFS 块设备；必须使用 SMB/CIFS。
 

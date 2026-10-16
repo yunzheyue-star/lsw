@@ -20,7 +20,7 @@ namespace {
 /// @brief 转义 PowerShell 单引号字符串。
 /// @param text 原始文本。
 /// @return 单引号翻倍后的文本。
-std::string escape_powershell_single_quote(std::string_view text) {
+std::string escape_single_quote(std::string_view text) {
     std::string out;
     out.reserve(text.size());
     for (const char ch : text) {
@@ -155,6 +155,16 @@ bool safe_smb_component(std::string_view value) {
 
 } // namespace
 
+/** @brief 转义 PowerShell 单引号字符串（单引号翻倍）。 */
+std::string escape_powershell_single_quote(std::string_view text) {
+    return escape_single_quote(text);
+}
+
+/** @brief 将 PowerShell 脚本文本编码为 `-EncodedCommand` 参数。 */
+std::string encode_powershell_command(std::string_view script) {
+    return base64_encode(utf8_to_utf16le(script));
+}
+
 /** @brief 构造远端 PowerShell 初始化脚本（未编码）。 */
 Result<std::string> build_powershell_script(const Config &config,
                                             const std::filesystem::path &cwd,
@@ -172,14 +182,14 @@ Result<std::string> build_powershell_script(const Config &config,
     const std::string drive = config.filesystem.windows_drive_z;
     const std::string unc = "\\\\" + config.network.guest_smb_host + "\\" +
                             config.network.guest_smb_share;
-    const std::string escaped_target = escape_powershell_single_quote(*target);
+    const std::string escaped_target = escape_single_quote(*target);
 
     std::string script;
     script.reserve(1024);
     script += "$ProgressPreference='SilentlyContinue'; ";
     script += "$ErrorActionPreference='Continue'; ";
-    script += "$drive='" + escape_powershell_single_quote(drive) + "'; ";
-    script += "$unc='" + escape_powershell_single_quote(unc) + "'; ";
+    script += "$drive='" + escape_single_quote(drive) + "'; ";
+    script += "$unc='" + escape_single_quote(unc) + "'; ";
     script += "$mapped=$false; ";
     script += "for ($i=0; $i -lt 8; $i++) { ";
     script += "net use $drive /delete /y 2>$null | Out-Null; ";
@@ -188,13 +198,26 @@ Result<std::string> build_powershell_script(const Config &config,
               "break }; ";
     script += "Start-Sleep -Seconds 2 }; ";
     script += "if (-not $mapped) { Write-Error 'LSW: 无法在 Windows 内映射 " +
-              escape_powershell_single_quote(drive) +
+              escape_single_quote(drive) +
               "（请确认 lsw start 的 host Samba 正在运行）'; exit 6 }; ";
     script += "$target='" + escaped_target + "'; ";
     script += "if ($target.Length -gt 0) { try { "
               "Set-Location -LiteralPath $target -ErrorAction Stop } catch { "
               "Write-Error ('LSW: 无法进入 ' + $target + ': ' + "
-              "$_.Exception.Message); exit 6 } }";
+              "$_.Exception.Message); exit 6 } }; ";
+    // ConPTY 下 Windows PowerShell 的 RawUI 缓冲区高度常远大于窗口高度，
+    // PSReadLine 每次按键重绘都会把输入行顶出可视区；把缓冲区收敛到
+    // 当前窗口尺寸，避免交互输入“消失”。
+    script += "try { $ws=$Host.UI.RawUI.WindowSize; "
+              "if ($ws.Width -gt 0 -and $ws.Height -gt 0) { "
+              "$bs=$Host.UI.RawUI.BufferSize; $bs.Width=$ws.Width; "
+              "$bs.Height=$ws.Height; $Host.UI.RawUI.BufferSize=$bs; "
+              "$Host.UI.RawUI.WindowSize=$ws } } catch { }; ";
+    // 让 clear/cls 像真正的终端一样清掉可视区与滚动回退，而不是把内容
+    // 顶进 scrollback。
+    script += "function global:Clear-Host { "
+              "[Console]::Write(\"$([char]27)[2J$([char]27)[3J"
+              "$([char]27)[H\") }";
     return script;
 }
 
@@ -209,7 +232,7 @@ build_ssh_args(const Config &config, const std::filesystem::path &cwd,
     if (!script) {
         return std::unexpected(script.error());
     }
-    const std::string encoded = base64_encode(utf8_to_utf16le(*script));
+    const std::string encoded = encode_powershell_command(*script);
     const std::string target = config.user.windows_user + "@127.0.0.1";
     std::vector<std::string> args{
         std::move(ssh_binary),

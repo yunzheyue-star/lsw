@@ -13,12 +13,23 @@
 
 #include <filesystem>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include <lsw/core/config.hpp>
 #include <lsw/core/error.hpp>
 
 namespace lsw::shell {
+
+/// @brief 转义 PowerShell 单引号字符串（单引号翻倍）。
+/// @param text 原始文本。
+/// @return 可安全嵌入单引号字符串的文本。
+[[nodiscard]] std::string escape_powershell_single_quote(std::string_view text);
+
+/// @brief 将 PowerShell 脚本文本编码为 `-EncodedCommand` 参数。
+/// @param script PowerShell 脚本文本。
+/// @return UTF-16LE + Base64 的编码字符串。
+[[nodiscard]] std::string encode_powershell_command(std::string_view script);
 
 /// @brief 构造远端 PowerShell 初始化脚本（未编码）。
 /// - cwd == home → 不 Set-Location，进入 PowerShell 默认路径；

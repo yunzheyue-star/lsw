@@ -1,23 +1,29 @@
 @startuml
-title lsw test.exe 时序
+title lsw <program> 时序（P8）
 actor User
 participant "lsw" as CLI
 participant "lswd" as Daemon
 participant "ssh" as SSH
-participant "PowerShell" as PS
+participant "Windows OpenSSH" as WinSSH
+participant "PowerShell / cmd" as PS
 
-User -> CLI : lsw test.exe arg1 arg2
-CLI -> CLI : 相对路径解析为绝对路径
-alt 位于 $HOME 下
-  CLI -> CLI : 映射为 Z:\\...
-else 位于 $HOME 外
-  CLI -> CLI : 复制到 $HOME/.lsw/tmp/<hash>/
-  CLI -> CLI : 映射为 Z:\\...
-end
+User -> CLI : lsw test.bat arg1 arg2
+CLI -> CLI : current_path()
 CLI -> Daemon : exec { argv, cwd }
-Daemon -> SSH : ssh -p 2222 "$WINDOWS_USER"@127.0.0.1 "& 'Z:\\...\\test.exe' ...; exit $LASTEXITCODE"
-SSH -> PS : 执行程序
-PS --> Daemon : stdout / stderr / exit code
-Daemon --> CLI : { stdout, stderr, exit_code }
-CLI --> User : 透传输出与退出码（0/5/6/7）
+Daemon -> Daemon : resolve_target(argv[0], cwd, $HOME)
+alt 程序不在 $HOME 下
+  Daemon -> Daemon : 复制到 ~/.lsw/tmp/<hash>/
+end
+alt GUI exe（PE Subsystem==2）
+  Daemon --> CLI : error PROGRAM_FAILED（退出码 7）
+else 可执行
+  Daemon -> Daemon : build Exec EncodedCommand\n(net use Z: + Copy-Item 到 %TEMP% + & $program)
+  Daemon -> SSH : ssh -p 2222 -o BatchMode=yes ...\n-- powershell.exe -NoProfile -NonInteractive -EncodedCommand
+  SSH -> WinSSH : 连接 127.0.0.1:2222
+  WinSSH -> PS : 复制到 %TEMP%\lsw-exec-* 并 Unblock\n执行 test.bat / .exe
+  PS --> SSH : stdout / stderr / exit code
+  SSH --> Daemon : stdout / stderr / exit code
+  Daemon --> CLI : { stdout, stderr, exit_code }
+  CLI --> User : 透传 stdout/stderr；退出码透传（0–255）
+end
 @enduml

@@ -54,7 +54,7 @@ check_grep "tests/CMakeLists.txt" "catch_discover_tests" "Catch2 测试接入 CT
 
 # ---------- 构建与测试 ----------
 section "构建与测试"
-if [ ! -f build/CMakeCache.txt ]; then
+if [ ! -f build/CMakeCache.txt ] || [ ! -f build/compile_commands.json ]; then
   if cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
       >/tmp/lsw-p1-configure.log 2>&1; then
     ok "首次 CMake 配置成功"

@@ -139,6 +139,11 @@ printing = bsd
 disable spoolss = yes
 usershare max shares = 0
 server min protocol = SMB2
+# Windows 从 SMB 映射盘直接执行 .bat/.exe 时，oplocks/lease 可能让 cmd.exe
+# 等待文件锁；LSW 的数据交换不依赖 oplock，关闭以避免交互终端卡住。
+oplocks = no
+level2 oplocks = no
+kernel oplocks = no
 [$share_name]
 path = $home_dir
 read only = no

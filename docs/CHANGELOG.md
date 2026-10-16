@@ -6,8 +6,10 @@
 
 ### 新增
 
-- P7 `lsw shell`：CLI 上报 `cwd`，daemon 经 `map_cwd_to_z` 生成含 `net use Z:` + `Set-Location` 的 EncodedCommand `ssh_args`；CLI `execvp` 接管终端，`$HOME` 外返回 `PATH_OUTSIDE_HOME`，VM 未运行返回 `VM_NOT_RUNNING`；新增 `scripts/verify-p7.sh`。
+- P8 `lsw <program>`：支持 `.exe`/`.bat`/`.cmd`；daemon 解析 argv/cwd、`$HOME` 外复制到 `~/.lsw/tmp/<hash>/`、PE GUI 检测、非交互 SSH、Windows `%TEMP%` 本地副本执行（规避 SMB 文件锁）、stdout/stderr/exit_code 透传；新增 `PROGRAM_FAILED` 与 `scripts/verify-p8.sh`。
+- P7 `lsw shell`：CLI 上报 `cwd`，daemon 经 `map_cwd_to_z` 生成含 `net use Z:` + `Set-Location` 的 EncodedCommand `ssh_args`；CLI `execvp` 接管终端，`$HOME` 外返回 `PATH_OUTSIDE_HOME`，VM 未运行返回 `VM_NOT_RUNNING`；新增 `scripts/verify-p7.sh`；终端体验：启动清屏 + RawUI 缓冲区归一化 + `Clear-Host` 清滚动回退。
 - P6 复盘文档：[`docs/P6-回顾.md`](P6-回顾.md)（QEMU user SMB → host root Samba 的演进、真机 30/30 验收与经验教训）。
+- P8 复盘文档：[`docs/P8-回顾.md`](P8-回顾.md)（SMB 直执行卡死的定位、Windows 本地副本执行、终端体验修复与真机验收记录）。
 
 - 工程基线：CMake 目标 `lsw`、CTest 冒烟测试 `lsw_smoke`。
 - 目录骨架：`include/lsw/{cli,core,vm,fs,shell,exec,ipc,util}`、`tests/`、`scripts/`、`cmake/`。

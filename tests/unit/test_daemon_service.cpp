@@ -146,7 +146,9 @@ TEST_CASE("DaemonService 未实现命令与未知命令", "[daemon]") {
     DaemonService service(fixture.config, fixture.paths, fixture.options());
     CHECK(service.handle("shell", nlohmann::json{{"cwd", "/"}}).error().code ==
           ErrorCode::kVMNotRunning);
-    CHECK(service.handle("exec").error().code == ErrorCode::kNotImplemented);
+    CHECK(
+        service.handle("exec", nlohmann::json{{"argv", {"x"}}}).error().code ==
+        ErrorCode::kVMNotRunning);
     CHECK(service.handle("nope").error().code == ErrorCode::kUnknownCommand);
 }
 
@@ -181,6 +183,39 @@ TEST_CASE("DaemonService shell 返回 ssh_args 并限制在 $HOME 内",
         service.handle("shell", nlohmann::json{{"cwd", "/tmp"}});
     REQUIRE_FALSE(outside.has_value());
     CHECK(outside.error().code == ErrorCode::kPathMappingFailed);
+
+    REQUIRE(service.handle("shutdown").has_value());
+}
+
+TEST_CASE("DaemonService exec 返回 stdout/stderr/exit_code", "[daemon][exec]") {
+    Fixture fixture;
+    const auto home = fixture.temp.path() / "home";
+    std::filesystem::create_directories(home);
+    std::ofstream(home / "test.bat") << "@echo off\r\necho hi\r\n";
+    fixture.config.filesystem.linux_home_share = home;
+
+    const auto fake_ssh = fixture.temp.path() / "fake-ssh";
+    std::ofstream(fake_ssh) << "#!/usr/bin/env bash\n"
+                               "echo FAKE_OUT\n"
+                               "echo FAKE_ERR >&2\n"
+                               "exit 7\n";
+    std::filesystem::permissions(fake_ssh, std::filesystem::perms::owner_exec,
+                                 std::filesystem::perm_options::add);
+
+    auto options = fixture.options();
+    options.z_mapping_options.ssh_binary = fake_ssh.string();
+    DaemonService service(fixture.config, fixture.paths, options);
+    REQUIRE(service.handle("start").has_value());
+
+    const auto result =
+        service.handle("exec", nlohmann::json{{"argv", {"test.bat", "a"}},
+                                              {"cwd", home.string()}});
+    REQUIRE(result.has_value());
+    CHECK((*result)["exit_code"] == 7);
+    CHECK((*result)["stdout"].get<std::string>().find("FAKE_OUT") !=
+          std::string::npos);
+    CHECK((*result)["stderr"].get<std::string>().find("FAKE_ERR") !=
+          std::string::npos);
 
     REQUIRE(service.handle("shutdown").has_value());
 }

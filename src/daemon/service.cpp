@@ -18,6 +18,7 @@
 #include <utility>
 
 #include <lsw/core/process.hpp>
+#include <lsw/exec/windows_runner.hpp>
 #include <lsw/fs/credentials.hpp>
 #include <lsw/fs/host_smb.hpp>
 #include <lsw/fs/mount.hpp>
@@ -181,6 +182,9 @@ DaemonServiceOptions default_daemon_service_options() {
     if (auto value = env_string("LSW_HOST_SMB_SHARE"); value.has_value()) {
         options.host_smb_options.share = *value;
     }
+    if (auto value = env_long("LSW_EXEC_TIMEOUT_MS"); value.has_value()) {
+        options.exec_timeout = std::chrono::milliseconds(*value);
+    }
     return options;
 }
 
@@ -221,8 +225,7 @@ Result<nlohmann::json> DaemonService::handle(const std::string &command,
         return on_shell(args);
     }
     if (command == "exec") {
-        (void)args;
-        return fail(ErrorCode::kNotImplemented, "exec 命令将在 P8 实现");
+        return on_exec(args);
     }
     return fail(ErrorCode::kUnknownCommand, "未知命令: " + command);
 }
@@ -447,6 +450,68 @@ Result<nlohmann::json> DaemonService::on_shell(const nlohmann::json &args) {
 /// @brief 处理 unmount 命令：卸载挂载根下全部 CIFS 挂载点。
 /// @param args 命令参数（保留扩展）。
 /// @return 清空后的挂载点列表 JSON。
+
+/// @brief 处理 exec 命令：解析程序路径并在 Windows 内执行。
+/// @param args 命令参数：argv（必填）与 cwd（可选）。
+/// @return 成功返回 stdout/stderr/exit_code；VM 未运行返回 kVMNotRunning。
+Result<nlohmann::json> DaemonService::on_exec(const nlohmann::json &args) {
+    std::lock_guard lock(mutex_);
+    if (!vm_.has_value() || !vm_->running()) {
+        return fail(ErrorCode::kVMNotRunning,
+                    "Windows 虚拟机未运行，请先执行 lsw start");
+    }
+    if (!args.contains("argv") || !args["argv"].is_array() ||
+        args["argv"].empty()) {
+        return fail(ErrorCode::kInvalidArgument,
+                    "exec 命令缺少非空数组参数 argv");
+    }
+    std::vector<std::string> argv;
+    for (const auto &item : args["argv"]) {
+        if (!item.is_string()) {
+            return fail(ErrorCode::kInvalidArgument,
+                        "exec.argv 含非字符串元素");
+        }
+        argv.push_back(item.get<std::string>());
+    }
+
+    auto home = expand_tilde(config_.filesystem.linux_home_share,
+                             PathEnvironment::from_process());
+    if (!home) {
+        return std::unexpected(home.error());
+    }
+    std::filesystem::path cwd = *home;
+    if (args.contains("cwd") && args["cwd"].is_string()) {
+        cwd = args["cwd"].get<std::string>();
+    }
+
+    exec::ExecOptions exec_options;
+    exec_options.ssh_binary = options_.z_mapping_options.ssh_binary;
+    exec_options.timeout = options_.exec_timeout;
+    auto target = exec::resolve_target(argv[0], cwd, *home, exec_options);
+    if (!target) {
+        return std::unexpected(target.error());
+    }
+    std::vector<std::string> program_args(argv.begin() + 1, argv.end());
+    auto ssh_args = exec::build_ssh_args(config_, target->windows_path,
+                                         program_args, exec_options.ssh_binary);
+    if (!ssh_args) {
+        return std::unexpected(ssh_args.error());
+    }
+    auto result =
+        run_process(*ssh_args, RunOptions{.timeout = options_.exec_timeout});
+    if (!result) {
+        if (result.error().code == ErrorCode::kProcessTimeout) {
+            return fail(ErrorCode::kSshFailed,
+                        "Windows 程序执行超时（" +
+                            std::to_string(options_.exec_timeout.count()) +
+                            " ms）");
+        }
+        return std::unexpected(result.error());
+    }
+    return nlohmann::json{{"stdout", result->stdout_data},
+                          {"stderr", result->stderr_data},
+                          {"exit_code", result->exit_code}};
+}
 Result<nlohmann::json> DaemonService::on_unmount(const nlohmann::json &args) {
     std::lock_guard lock(mutex_);
     (void)args;

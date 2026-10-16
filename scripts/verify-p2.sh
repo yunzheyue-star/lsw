@@ -62,8 +62,12 @@ if [ -f build/_deps/cli11-src/include/CLI/Version.hpp ]; then
     3.1[0-9]|3.[2-9][0-9]|[4-9].*) ok "最低 CMake >= 3.10，弃用警告已消除" ;;
     *) ng "CLI11 最低 CMake 仍 < 3.10（$min）" ;;
   esac
+elif [ -f /usr/include/CLI/Version.hpp ]; then
+  version="$(grep -oE '[0-9]+\.[0-9]+\.[0-9]+' /usr/include/CLI/Version.hpp | head -1)"
+  ok "系统 CLI11 版本 ${version}（经 CMake config 解析，无 FetchContent 缓存）"
+  ok "系统包路径无 CLI11 CMake 弃用警告"
 else
-  ng "未找到 CLI11 源码缓存"
+  ng "未找到 CLI11（FetchContent 缓存或系统包）"
 fi
 
 # ---------- 构建与单元测试 ----------

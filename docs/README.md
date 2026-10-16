@@ -10,6 +10,7 @@ docs/
 ├── CHANGELOG.md
 ├── TASKS.md
 ├── P6-回顾.md
+├── P8-回顾.md
 ├── interfaces/
 │   ├── cli.md
 │   ├── core.md

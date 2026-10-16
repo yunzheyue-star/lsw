@@ -16,6 +16,7 @@
 #include <iostream>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <system_error>
 #include <termios.h>
 #include <thread>
@@ -238,6 +239,15 @@ int run_shell_command(const lsw::XdgPaths &paths) {
                                             "lswd 返回的 ssh_args 为空"));
     }
 
+    // 交给 ssh 之前清掉本地终端（含滚动回退与启动命令行），让 PowerShell
+    // 从干净屏幕开始；stdout 不是 TTY 时保持原样。
+    if (::isatty(STDOUT_FILENO) != 0) {
+        constexpr std::string_view kClearTerminal = "\x1b[2J\x1b[3J\x1b[H";
+        const ssize_t ignored = ::write(STDOUT_FILENO, kClearTerminal.data(),
+                                        kClearTerminal.size());
+        static_cast<void>(ignored);
+    }
+
     std::vector<char *> raw;
     raw.reserve(args.size() + 1);
     for (auto &arg : args) {
@@ -252,6 +262,54 @@ int run_shell_command(const lsw::XdgPaths &paths) {
                                                   ": " + std::strerror(saved)));
 }
 
+/// @brief 在 Windows 内执行 `lsw <program> [args...]`。
+/// @param paths 当前用户 XDG 路径。
+/// @param argv 程序路径及参数（argv[0] 为程序）。
+/// @return 程序退出码（透传）；daemon 错误返回对应退出码。
+int run_exec_command(const lsw::XdgPaths &paths,
+                     const std::vector<std::string> &argv) {
+    std::error_code error;
+    const auto cwd = std::filesystem::current_path(error);
+    if (error) {
+        return report_error(
+            lsw::make_error(lsw::ErrorCode::kPathMappingFailed,
+                            "无法获取当前目录: " + error.message()));
+    }
+    if (auto status = ensure_daemon(paths); !status) {
+        return report_error(status.error());
+    }
+
+    lsw::ipc::ClientOptions options;
+    options.socket_path = paths.runtime_dir / "lswd.sock";
+    options.connect_timeout = std::chrono::seconds(1);
+    options.io_timeout = std::chrono::seconds(360);
+    lsw::ipc::Client client(options);
+    auto result = client.call(
+        "exec", nlohmann::json{{"argv", argv}, {"cwd", cwd.string()}});
+    if (!result) {
+        return report_error(result.error());
+    }
+    const std::string stdout_data = result->value("stdout", std::string{});
+    const std::string stderr_data = result->value("stderr", std::string{});
+    if (!stdout_data.empty()) {
+        std::cout << stdout_data;
+        if (stdout_data.back() != '\n') {
+            std::cout << "\n";
+        }
+    }
+    if (!stderr_data.empty()) {
+        std::cerr << stderr_data;
+        if (stderr_data.back() != '\n') {
+            std::cerr << "\n";
+        }
+    }
+    const int exit_code = result->value("exit_code", 0);
+    if (exit_code < 0) {
+        return 1;
+    }
+    return exit_code & 0xFF;
+}
+
 } // namespace
 
 /// @brief lsw CLI 入口，解析并执行 install/start/shutdown 命令。
@@ -261,6 +319,7 @@ int run_shell_command(const lsw::XdgPaths &paths) {
 int main(int argc, char **argv) {
     CLI::App app{"lsw - Linux Subsystem for Windows"};
     app.name("lsw");
+    app.allow_extras();
     app.set_version_flag("--version", std::string("lsw ") + LSW_VERSION);
 
     bool install_flag = false;
@@ -306,6 +365,16 @@ int main(int argc, char **argv) {
         return app.exit(error);
     }
 
+    const auto extras = app.remaining();
+    if (install_flag && !extras.empty()) {
+        std::cerr << "lsw: 多余的参数:";
+        for (const auto &item : extras) {
+            std::cerr << " " << item;
+        }
+        std::cerr << "\n提示：ISO / 磁盘路径必须配合选项使用：--iso、"
+                     "--virtio-iso、--disk。\n";
+        return lsw::to_exit_code(lsw::ErrorCode::kInvalidArgument);
+    }
     if (install_flag) {
         auto paths = lsw::resolve_paths(lsw::PathEnvironment::from_process());
         if (!paths) {
@@ -340,6 +409,14 @@ int main(int argc, char **argv) {
 
     if (start_command->parsed() || shutdown_command->parsed() ||
         mount_command->parsed() || unmount_command->parsed()) {
+        if (!extras.empty()) {
+            std::cerr << "lsw: 子命令不接受额外位置参数:";
+            for (const auto &item : extras) {
+                std::cerr << " " << item;
+            }
+            std::cerr << "\n";
+            return lsw::to_exit_code(lsw::ErrorCode::kInvalidArgument);
+        }
         auto paths = lsw::resolve_paths(lsw::PathEnvironment::from_process());
         if (!paths) {
             return report_error(paths.error());
@@ -386,6 +463,17 @@ int main(int argc, char **argv) {
         return run_daemon_command(*paths, "shutdown");
     }
 
+    if (!extras.empty()) {
+        if (shell_command->parsed()) {
+            std::cerr << "lsw shell 不接受额外位置参数\n";
+            return lsw::to_exit_code(lsw::ErrorCode::kInvalidArgument);
+        }
+        auto paths = lsw::resolve_paths(lsw::PathEnvironment::from_process());
+        if (!paths) {
+            return report_error(paths.error());
+        }
+        return run_exec_command(*paths, extras);
+    }
     if (shell_command->parsed() || argc == 1) {
         auto paths = lsw::resolve_paths(lsw::PathEnvironment::from_process());
         if (!paths) {

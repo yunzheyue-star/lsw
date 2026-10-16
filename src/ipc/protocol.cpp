@@ -196,6 +196,8 @@ std::string to_ipc_error_code(ErrorCode code) noexcept {
         return std::string(kVMNotRunning);
     case ErrorCode::kSshFailed:
         return std::string(kSshFailed);
+    case ErrorCode::kProgramFailed:
+        return std::string(kProgramFailed);
     case ErrorCode::kIoError:
         return std::string(kMountFailed);
     case ErrorCode::kMountFailed:
@@ -234,6 +236,8 @@ ErrorCode from_ipc_error_code(std::string_view code) noexcept {
         return ErrorCode::kVMNotRunning;
     if (code == kSshFailed)
         return ErrorCode::kSshFailed;
+    if (code == kProgramFailed)
+        return ErrorCode::kProgramFailed;
     if (code == kMountFailed)
         return ErrorCode::kMountFailed;
     if (code == kUnmountFailed)

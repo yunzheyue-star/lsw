@@ -24,9 +24,9 @@
 | P5 | `lsw start` / `lsw shutdown` | 10% | [x] |
 | P6 | 文件系统（Z: / CIFS） | 12% | [x] |
 | P7 | `lsw shell` 桥接 | 8% | [x] |
-| P8 | `lsw test.exe` 执行 | 5% | [ ] |
+| P8 | `lsw <program>` 执行（.exe/.bat/.cmd） | 5% | [x] |
 | P9 | 系统测试与 1.0 收口 | 10% | [ ] |
-| **合计** | | **100%** | 当前 **85%** |
+| **合计** | | **100%** | 当前 **90%** |
 
 ## 权重分布
 
@@ -40,7 +40,7 @@ P5  start/shutdown  ██████████      10%
 P9  测试与收口      ██████████      10%
 P7  shell           ████████         8%
 P0  工程基线        █████            5%
-P8  test.exe        █████            5%
+P8  <program>       █████            5%
 ```
 
 ## 关键路径
@@ -62,7 +62,7 @@ P0 → P1 → P2 → P3 ─┬─→ P4（安装链路）───────�
 | ✅ M1 | 核心库可用 | `lsw_core` 单测全绿，配置/路径/进程接口冻结 | 20% |
 | ✅ M2 | VM 可控 | `lswd` 能通过 QMP 启停 Mock/真实 QEMU | 45% |
 | ✅ M3 | 安装可用 | `lsw --install` 真机走通安装模式 | 55% |
-| M4 | 日常可用 | `start` / `shell` / `test.exe` / `shutdown` 闭环 | 90% |
+| M4 | 日常可用 | `start` / `shell` / `<program>` / `shutdown` 闭环 | 90% |
 | M5 | 1.0 发布 | DoD 全勾选，文档与渲染图一致，打 `v1.0.0` | 100% |
 
 ---
@@ -228,13 +228,44 @@ bash scripts/verify-p7.sh
 - 自动化：`bash scripts/verify-p7.sh` **36/36 通过**，`ctest` **108/108 通过**；P4/P5/P6 回归仍全绿。
 
 
-## P8 · `lsw test.exe` 执行（5%）
+## P8 · `lsw <program>` 执行（5%，已完成）
 
 | 编号 | 任务 | 交付物 / 验收标准 | 依赖 | 权重 | 状态 |
 | --- | --- | --- | --- | ---: | :---: |
-| P8-1 | 路径解析与临时复制 | 绝对化、`$HOME` 判定、`$HOME` 外复制到 `~/.lsw/tmp/<hash>/`、清理策略 | P1 | 2% | [ ] |
-| P8-2 | SSH 执行与透传 | `& 'Z:\path\test.exe' args; exit $LASTEXITCODE`；stdout/stderr/退出码/超时 | P7、P8-1 | 2% | [ ] |
-| P8-3 | GUI 提示与错误码 | GUI 程序明确提示不支持；`0/5/6/7` 映射并与文档一致 | P8-2 | 1% | [ ] |
+| P8-1 | 路径解析与临时复制 | 绝对化、`$HOME` 判定、`$HOME` 外复制到 `~/.lsw/tmp/<hash>/`、7 天清理策略 | P1 | 2% | [x] |
+| P8-2 | SSH 执行与透传 | 支持 `.exe`/`.bat`/`.cmd`；`& $program @argv; exit $LASTEXITCODE`；非交互 SSH；stdout/stderr/退出码/超时 | P7、P8-1 | 2% | [x] |
+| P8-3 | GUI 提示与错误码 | PE Subsystem==GUI 明确提示；`0/5/6/程序退出码透传`，GUI 为 `PROGRAM_FAILED`（7） | P8-2 | 1% | [x] |
+
+### P8 验收方式（一键）
+
+```bash
+bash scripts/verify-p8.sh
+```
+
+预期：构建与 `ctest` 通过；exec 单测覆盖路径映射/越界复制/PE GUI 检测/脚本构造；假 QEMU + 假 ssh E2E 验证 `lsw test.bat` 的 stdout/stderr 透传、非零退出码透传、GUI exe 返回 `PROGRAM_FAILED`、`$HOME` 外复制到 `~/.lsw/tmp`。
+
+### P8 真机 .bat 验收
+
+1. 在 Linux `$HOME` 下创建 `test.bat`：
+
+```bat
+@echo off
+echo LSW_BAT_OK
+echo LSW_BAT_ERR 1>&2
+exit /b 0
+```
+
+2. 执行 `lsw test.bat`，应输出 `LSW_BAT_OK` / `LSW_BAT_ERR`，退出码 0；
+3. 把 `exit /b 0` 改为 `exit /b 7`，重复执行，Linux 侧退出码应为 7；
+4. 在 `$HOME` 外放一个 `.bat` 后执行，应看到文件被复制到 `~/.lsw/tmp` 后再运行。
+
+### P8 真机验收记录
+
+- 2026-10-16：`lsw test.bat` 真机输出 `LSW_BAT_OK` / `LSW_BAT_ERR`，退出码 0；交互 PowerShell 内 `.\test.bat` 正常返回；
+- 终端体验：启动清屏、`RawUI` 缓冲区归一化、`Clear-Host` 清理滚动回退通过；
+- 自动化：`bash scripts/verify-p8.sh` **32/32 通过**，`ctest` **115/115 通过**；P0~P7 回归全绿；
+- 问题定位与修复详见 [`docs/P8-回顾.md`](P8-回顾.md)。
+
 
 ## P9 · 系统测试与 1.0 收口（10%）
 

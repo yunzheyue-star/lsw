@@ -84,7 +84,7 @@ if [ ! -f build/CMakeCache.txt ]; then
         && ok "CMake 配置成功" || { ng "CMake 配置失败"; tail -15 /tmp/lsw-p7-configure.log; }
 fi
 BUILD_TMP="$(mktemp -d)"
-if TMPDIR="$BUILD_TMP" cmake --build build -j >/tmp/lsw-p7-build.log 2>&1; then
+if TMPDIR="$BUILD_TMP" XDG_RUNTIME_DIR="$BUILD_TMP" cmake --build build -j >/tmp/lsw-p7-build.log 2>&1; then
     ok "构建成功"
 else
     ng "构建失败"

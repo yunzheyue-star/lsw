@@ -9,6 +9,7 @@ participant "PowerShell" as PS
 
 User -> CLI : lsw（或 lsw shell）
 CLI -> CLI : current_path()
+CLI -> CLI : 清本地终端 ESC[2J/3J/H
 CLI -> Daemon : shell { cwd }（$RUNTIME/lsw/lswd.sock）
 alt VM 未运行
   Daemon --> CLI : error VM_NOT_RUNNING（退出码 6）
@@ -19,7 +20,7 @@ else cwd 在 $HOME 下
   Daemon --> CLI : { ssh_args: [ssh, -t, -p, ..., -EncodedCommand, ...] }
   CLI -> SSH : execvp ssh -t ... -- powershell.exe -NoLogo -NoExit
   SSH -> WinSSH : 连接 127.0.0.1:2222
-  WinSSH -> PS : 执行编码脚本：net use Z: \\10.0.2.2\qemu；Set-Location Z:\...
+  WinSSH -> PS : 编码脚本：net use Z: \\10.0.2.2\qemu\nSet-Location Z:\...；RawUI 缓冲区归一化\n覆盖 Clear-Host（清可视区+滚动回退）
   PS --> User : 交互式 PowerShell（不新开窗口，退出后回原 shell）
 end
 @enduml
