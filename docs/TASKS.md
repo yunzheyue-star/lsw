@@ -25,13 +25,13 @@
 | P6 | 文件系统（Z: / CIFS） | 12% | [x] |
 | P7 | `lsw shell` 桥接 | 8% | [x] |
 | P8 | `lsw <program>` 执行（.exe/.bat/.cmd） | 5% | [x] |
-| P9 | 系统测试与 1.0 收口 | 10% | [x] |
+| P9 | 系统测试与 1.0 收口 | 10% | [ ] |
 | P10 | `lsw status`（扩展） | — | [x] |
 | P11 | `lsw install` 子命令别名（扩展） | — | [x] |
 | P12 | `lsw init` 环境初始化（扩展） | — | [x] |
 | P13 | `lsw uninstall` 卸载（扩展） | — | [x] |
-| P14 | 打包与 `make install/uninstall`（扩展） | — | [x] |
-| **合计** | | **100%** | 当前 **100%**（P10~P14 为扩展功能） |
+| P14 | 打包与 `make install/uninstall`（扩展） | — | [ ] |
+| **合计** | | **100%** | 当前 **90%**（P9 完成后 100%，P10 为扩展） |
 
 ## 权重分布
 
@@ -272,15 +272,15 @@ exit /b 0
 - 问题定位与修复详见 [`docs/P8-回顾.md`](P8-回顾.md)。
 
 
-## P9 · 系统测试与 1.0 收口（10%，已完成）
+## P9 · 系统测试与 1.0 收口（10%，自动验收已完成，真机 E2E 待执行）
 
 | 编号 | 任务 | 交付物 / 验收标准 | 依赖 | 权重 | 状态 |
 | --- | --- | --- | --- | ---: | :---: |
 | P9-1 | 单元测试补全 | core / ipc / qmp（mock QEMU）覆盖率达标；`ctest` 全绿 | P1~P8 | 3% | [x] |
-| P9-2 | 集成 / E2E | 真机 QEMU 验收 5 个核心命令；`--install` 人工步骤清单脚本化 | P4~P8 | 3% | [x] |
+| P9-2 | 集成 / E2E | 真机 QEMU 验收 5 个核心命令；`--install` 人工步骤清单脚本化 | P4~P8 | 3% | [~] |
 | P9-3 | 文档全量对齐 | 接口 / 图 / CHANGELOG / TASKS 状态一致；PlantUML 实际渲染复核 | P9-2 | 2% | [x] |
 | P9-4 | 安全与合规审计 | 不提供 ISO、无明文密码、helper 最小权限、无 shell 注入、不越权 KVM | P6、P9-2 | 1% | [x] |
-| P9-5 | DoD 终验与发布 | 勾选 `agent.md` Definition of Done；打 `v1.0.0`；CHANGELOG 归档 | P9-4 | 1% | [x] |
+| P9-5 | DoD 终验与发布 | 勾选 `agent.md` Definition of Done；打 `v1.0.0`；CHANGELOG 归档 | P9-4 | 1% | [~] |
 
 ### P9 验收方式
 
@@ -309,13 +309,6 @@ LSW_P9_REAL=1 bash scripts/verify-p9.sh
 - [x] 不引入明文密码（`audit-security.sh`）
 - [x] `lsw shell` 不新开窗口（`execvp` + 真机验收）
 - [x] `lsw <program>` 返回正确退出码（单测 + 真机 E2E）
-
-### P9 真机验收记录
-
-- 2026-10-17：真机 5 命令 E2E **6/6 通过**：`start`、`status`、`shell`、`<program>`（含退出码 0 与非零 7 透传）、`shutdown`；
-- 覆盖率：总体 56.78%、`src/core` 50.33%、`src/ipc` 70.11%、`src/vm` 71.13%，均达到 `scripts/coverage.sh` 阈值；
-- 文档对齐 64 项通过、安全审计 15 项通过；`--install` 人工步骤清单已脚本化在 `scripts/lsw-p9-real-test.sh`；
-- `ctest` 131/131，P0~P8 与扩展功能回归全绿。
 
 ## P10 · `lsw status` 状态查询（扩展功能）
 
