@@ -79,7 +79,9 @@ public:
 struct InstallOptions {
   std::filesystem::path windows_iso, virtio_iso, disk_image;
   std::uint64_t disk_size_gb{64};
-  std::filesystem::path kvm_device, qemu_binary, qemu_img_binary;
+  std::filesystem::path kvm_device, qemu_img_binary;
+  // 空 = 使用 qemu_options.qemu_binary，确保依赖检查与实际启动一致
+  std::filesystem::path qemu_binary;
   std::filesystem::path ovmf_code, ovmf_vars_template, swtpm_binary;
   bool require_kvm{true}, require_swtpm{false}, interactive{true};
   bool overwrite_disk{false};

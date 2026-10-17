@@ -9,7 +9,7 @@
 ![Platform](https://img.shields.io/badge/platform-Linux%20%2B%20KVM-lightgrey)
 ![Status](https://img.shields.io/badge/status-1.0.0-brightgreen)
 ![License](https://img.shields.io/badge/license-MIT-green)
-![Tests](https://img.shields.io/badge/tests-131%2F131%20passed-brightgreen)
+![Tests](https://img.shields.io/badge/tests-132%2F132%20passed-brightgreen)
 
 ---
 
@@ -18,7 +18,7 @@
 欢迎来到 **LSW (Linux Subsystem for Windows)**。
 这不是微软的恩赐，这是 Linux 原住民的绝地反击。
 
-WSL 是 Windows 试图在内部消解 Linux；而 LSW，是 Linux 对 Windows 的降维包容。我们用极其严谨的 C++26 标准、非阻塞 Socket、QMP 协议交互，并跑通了 131 个单元/集成测试，只为了完成一个极其抽象的终极目标：**在 Linux 上拉起 QEMU/KVM，跑一个 Windows 虚拟机，并强行管它叫“子系统”。**
+WSL 是 Windows 试图在内部消解 Linux；而 LSW，是 Linux 对 Windows 的降维包容。我们用极其严谨的 C++26 标准、非阻塞 Socket、QMP 协议交互，并跑通了 132 个单元/集成测试，只为了完成一个极其抽象的终极目标：**在 Linux 上拉起 QEMU/KVM，跑一个 Windows 虚拟机，并强行管它叫“子系统”。**
 
 你问我这东西有什么用？没关系，问就是**俄罗斯套娃**：
 > 你在 LSW 里跑 Windows，Windows 里跑 WSL，套到最后你得到了一个 Linux。
@@ -28,7 +28,7 @@ WSL 是 Windows 试图在内部消解 Linux；而 LSW，是 Linux 对 Windows �
 
 ## 💩 免责声明（必读）
 
-*   **关于性能**：我们保证了 IPC 通信的绝对优雅和并发状态的一致性（通过 131 个测试），但 Windows 虚拟机卡不卡？我不到啊。毕竟我只负责喂💩，不负责消化。
+*   **关于性能**：我们保证了 IPC 通信的绝对优雅和并发状态的一致性（通过 132 个测试），但 Windows 虚拟机卡不卡？我不到啊。毕竟我只负责喂💩，不负责消化。
 *   **关于生态**：目前是 1.0.0 初版，没有 WSLg 那种高级图形功能。想用图形界面？建议自己看着 Looking Glass 的 GPLv2 协议发呆。
 *   **关于协议**：本项目采用 MIT 协议，主打一个自由。如果自由软件基金会（FSF）觉得我们和 GPL 代码隔着 Unix Socket 说话也算链接，那我们就多开几个 Socket，套死他们。
 
@@ -716,7 +716,7 @@ bash scripts/coverage.sh
 
 GitHub Actions 工作流 `.github/workflows/package-tar-xz.yml` 会在推送 `v*` tag 或手动触发时：
 
-1. 在 Arch Linux 容器中安装构建依赖；
+1. 在 Arch Linux 容器中安装构建与测试依赖（含 QEMU / qemu-img）；
 2. `cmake` 配置、编译、`ctest`；
 3. 生成源码包 `lsw-<version>.tar.xz`；
 4. 解压后验证 `make install` 与 `make uninstall`；

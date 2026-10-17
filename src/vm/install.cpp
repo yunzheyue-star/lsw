@@ -265,7 +265,16 @@ Result<DependencyReport> Installer::check_dependencies() const {
         }
     };
 
-    report.qemu_binary = find_executable(options_.qemu_binary.string());
+    // 依赖检查必须与 run() 实际启动的 QEMU 保持一致：顶层 qemu_binary
+    // 为空时回落到 QemuVmOptions.qemu_binary（默认 qemu-system-x86_64）。
+    std::filesystem::path qemu_binary = options_.qemu_binary;
+    if (qemu_binary.empty()) {
+        qemu_binary = options_.qemu_options.qemu_binary;
+    }
+    if (qemu_binary.empty()) {
+        qemu_binary = "qemu-system-x86_64";
+    }
+    report.qemu_binary = find_executable(qemu_binary.string());
     if (report.qemu_binary.empty()) {
         report.missing.push_back("qemu-system-x86_64");
         add_hint(qemu_install_hint(distro));

@@ -33,10 +33,11 @@ jobs:
       - name: Mark workspace as safe
         run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
 
-      - name: Install LSW build dependencies
+      - name: Install LSW build and test dependencies
         run: |
           pacman -S --noconfirm --needed \
-            cli11 nlohmann-json spdlog fmt catch2 tomlplusplus
+            cli11 nlohmann-json spdlog fmt catch2 tomlplusplus \
+            qemu-system-x86 qemu-img
 
       - name: Configure
         run: |

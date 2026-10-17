@@ -64,6 +64,8 @@ P9 收口：真机 5 命令 6/6 通过；覆盖率、文档对齐、安全审计
 
 ### 修复
 
+- 修复 GitHub Actions 的 Arch 容器未安装 QEMU 导致安装相关测试误报缺失依赖的问题：工作流补充 `qemu-system-x86` / `qemu-img`，使 `ctest` 132/132 在 CI 中真实执行。
+- 修复 `Installer` 依赖检查与实际启动使用不同 QEMU 路径的问题：`InstallOptions::qemu_binary` 为空时回落到 `qemu_options.qemu_binary`，避免自定义/假 QEMU 时报告“缺少 qemu-system-x86_64”。
 - 修复 `lsw <program>` 将拼写错误（如 `lsw statu`）误当程序执行、在 VM 未运行时返回 `VM_NOT_RUNNING` 的问题：CLI 先判断位置参数是否像程序（含路径分隔符、`.exe/.bat/.cmd/.com` 扩展名，或 cwd 下存在同名普通文件），否则按未知命令返回退出码 2。
 - 修正可执行文件源文件路径：原 `add_executable(lsw main.cpp)` 指向不存在的根目录文件，实际为 `src/main.cpp`。
 - `include/` 目录为空时不再向 `target_sources` 传入空列表（CMake 参数错误）。

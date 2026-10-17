@@ -198,6 +198,18 @@ TEST_CASE("依赖齐全时报告通过", "[install]") {
     CHECK_FALSE(report->ovmf_code.empty());
 }
 
+TEST_CASE("依赖检查使用 run 实际启动的 QEMU 路径", "[install]") {
+    Fixture fixture;
+    InstallOptions options = fixture.options();
+    // Fixture 只设置 qemu_options.qemu_binary；依赖检查应使用同一路径，
+    // 而不是回落到宿主机 PATH 中的 qemu-system-x86_64。
+    REQUIRE(options.qemu_binary.empty());
+    Installer installer(fixture.config, fixture.paths, options);
+    const auto report = installer.check_dependencies();
+    REQUIRE(report.has_value());
+    CHECK(report->qemu_binary == std::filesystem::path(LSW_FAKE_QEMU_PATH));
+}
+
 TEST_CASE("ISO 校验拒绝非法路径", "[install]") {
     Fixture fixture;
     InstallOptions options = fixture.options();

@@ -48,7 +48,8 @@ struct InstallOptions {
         disk_image; ///< 空 = config.vm.disk 或 $DATA/vm/disk.qcow2
     std::uint64_t disk_size_gb{64};
     std::filesystem::path kvm_device{"/dev/kvm"};
-    std::filesystem::path qemu_binary{"qemu-system-x86_64"};
+    /// 空 = 使用 qemu_options.qemu_binary（依赖检查与启动保持同一路径）。
+    std::filesystem::path qemu_binary;
     std::filesystem::path qemu_img_binary{"qemu-img"};
     std::filesystem::path ovmf_code;          ///< 空 = 自动探测
     std::filesystem::path ovmf_vars_template; ///< 空 = 自动探测
